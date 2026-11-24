@@ -27,6 +27,7 @@ tests/e2e-results/
 playwright-report/
 dist-pages
 
-# Claude's local workspace (task logs, scratchpad)
-/.claude/scratchpad/
-/.claude/tasks/
+# Claude's local notes and workspace, and the plan: not part of the repository
+/.claude/
+/docs/
+test-results/

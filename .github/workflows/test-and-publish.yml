@@ -1,0 +1,59 @@
+# Tests the app on pushes to master and publishes it to GitHub Pages if the tests pass.
+# Free for public repositories. Can also be started by hand in the Actions tab.
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+name: Test and publish
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# runs one after the other, so a deployment is never cut off by a newer push
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Checks, unit and browser tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      # Firefox and WebKit (as on the iPhone) in Playwright's Docker image, exactly as run locally
+      # (npm run test:e2e); also builds the app as published (dist-pages) and tests that build
+      - run: sh scripts/test-e2e.sh
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: tests/e2e-results/
+          retention-days: 7
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist-pages
+
+  publish:
+    name: Publish to GitHub Pages
+    needs: web
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

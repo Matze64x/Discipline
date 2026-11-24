@@ -1,0 +1,5 @@
+<!-- PLACEHOLDER icon (a check mark on a dark tile), until the user picks the real one -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="0" fill="#111"/>
+  <path d="M136 268l80 80 160-184" fill="none" stroke="#7cf" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

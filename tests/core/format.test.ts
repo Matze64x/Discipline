@@ -167,3 +167,16 @@ describe('format', () => {
 		expect(parsed(serializeDiscipline(data))).toEqual(data);
 	});
 });
+
+describe('fixtures', () => {
+	it('are written exactly as the app writes them (e2e tests compare exports with them)', async () => {
+		const { readdirSync, readFileSync } = await import('node:fs');
+		const dir = new URL('../fixtures/', import.meta.url);
+		const names = readdirSync(dir).filter((n) => n.endsWith('.json'));
+		expect(names.length).toBeGreaterThan(0);
+		for (const name of names) {
+			const text = readFileSync(new URL(name, dir), 'utf8');
+			expect(serializeDiscipline(parsed(text)), name).toBe(text);
+		}
+	});
+});

@@ -1,0 +1,184 @@
+:root {
+	/* light: white and cyan (the user's choice); dark below: black and neon */
+	--bg: #f4f7f9;
+	--surface: #ffffff;
+	--text: #0b1218;
+	--muted: #4f5b66;
+	--border: #dde3e8;
+	/* borders of controls need 3:1 contrast against the surface */
+	--control-border: #7d8a95;
+	--accent: #0e7490;
+	--accent-text: #ffffff;
+	--accent-soft: rgb(6 182 212 / 0.14);
+	/* the same on the surface, opaque: for drawing "holes" over something on a hovered row */
+	--accent-soft-on-surface: color-mix(in srgb, #06b6d4 14%, var(--surface));
+	--positive: #15803d;
+	--negative: #c81e1e;
+	--warning: #a16207;
+
+	color-scheme: light dark;
+	font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
+	color: var(--text);
+	background: var(--bg);
+	-webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #000000;
+		--surface: #0b0c0f;
+		--text: #ffffff;
+		--muted: #a1a8b3;
+		--border: #26282e;
+		--control-border: #60656f;
+		--accent: #00e5ff;
+		--accent-text: #000000;
+		--accent-soft: rgb(0 229 255 / 0.18);
+		--accent-soft-on-surface: color-mix(in srgb, var(--accent) 18%, var(--surface));
+		--positive: #b8f53b;
+		--negative: #ff4d4d;
+		--warning: #ffd23f;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100dvh;
+}
+
+button {
+	font: inherit;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--control-border);
+	border-radius: 0.5rem;
+	padding: 0.45rem 0.9rem;
+	min-height: 2.5rem;
+	cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+	border-color: var(--accent);
+}
+
+button.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--accent-text);
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+	font: inherit;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--control-border);
+	border-radius: 0.5rem;
+	padding: 0.4rem 0.6rem;
+	min-height: 2.5rem;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+
+input[aria-invalid='true'] {
+	border-color: var(--negative);
+}
+
+/* an on/off switch: a checkbox with role="switch", drawn as a toggle */
+input[type='checkbox'][role='switch'] {
+	appearance: none;
+	flex: none;
+	position: relative;
+	width: 2.75rem;
+	height: 1.5rem;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--control-border);
+	border-radius: 999px;
+	background: var(--border);
+	cursor: pointer;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+input[type='checkbox'][role='switch']::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 0.15rem;
+	width: 1.1rem;
+	height: 1.1rem;
+	border-radius: 50%;
+	background: var(--muted);
+	transform: translateY(-50%);
+	transition: left 0.15s, background-color 0.15s;
+}
+input[type='checkbox'][role='switch']:checked {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+input[type='checkbox'][role='switch']:checked::before {
+	left: calc(100% - 1.25rem);
+	background: var(--accent-text);
+}
+input[type='checkbox'][role='switch']:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+	input[type='checkbox'][role='switch'],
+	input[type='checkbox'][role='switch']::before {
+		transition: none;
+	}
+}
+
+/* destructive actions (delete) */
+button.danger {
+	color: var(--negative);
+	border-color: var(--negative);
+}
+
+/*
+ * A dialog's buttons for the item itself (delete, copy, …), apart from Cancel and Save, which stay
+ * together as one group (on the right; on the next line if both don't fit on one)
+ */
+.buttons .item-actions,
+.buttons .main-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.buttons .item-actions {
+	margin-right: auto;
+}
+.buttons .main-actions {
+	margin-left: auto;
+	justify-content: flex-end;
+}
+
+kbd {
+	font: 0.85em ui-monospace, monospace;
+	border: 1px solid var(--control-border);
+	border-radius: 0.3rem;
+	padding: 0 0.3rem;
+}
