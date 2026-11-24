@@ -15,6 +15,8 @@ export interface Shortcut {
 	/** One or more alternative key combinations, e.g. ['j', 'ArrowDown'] */
 	readonly keys: readonly string[];
 	readonly description: string;
+	/** How the keys are shown in the help, if not each of them (e.g. '0–9' for all digits) */
+	readonly keysLabel?: string;
 	/** Heading in the help, e.g. 'Habits' */
 	readonly group: string;
 	/** Also fire while the focus is in a text field */

@@ -13,8 +13,9 @@ export interface Notice {
 	readonly undo: boolean;
 }
 
-/** How long an info message stays */
+/** How long an info message stays; one offering undo longer (on a phone it's the only way to undo) */
 export const INFO_MS = 6000;
+export const UNDO_MS = 30_000;
 
 class Notices {
 	list = $state.raw<readonly Notice[]>([]);
@@ -25,7 +26,7 @@ class Notices {
 		const notice = { id: this.#nextId++, text, error: false, undo };
 		this.list = [...this.list.filter((n) => n.error), notice];
 		clearTimeout(this.#timer);
-		this.#timer = setTimeout(() => this.dismiss(notice.id), INFO_MS);
+		this.#timer = setTimeout(() => this.dismiss(notice.id), undo ? UNDO_MS : INFO_MS);
 	}
 
 	error(text: string): void {

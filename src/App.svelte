@@ -1,4 +1,6 @@
 <script lang="ts">
+	import DayView from './lib/DayView.svelte';
+	import HabitsView from './lib/HabitsView.svelte';
 	import { touchFirst } from './lib/pointer';
 	import { errorMessage } from './lib/errors';
 	import ImportDialog from './lib/ImportDialog.svelte';
@@ -39,6 +41,12 @@
 	});
 
 	let settingsOpen = $state(false);
+	let habitsView = $state<HabitsView>();
+
+	/** `undo`: offer to undo the last change (e.g. after deleting) */
+	function notify(text: string, undo = false) {
+		notices.info(text, undo);
+	}
 
 	function undo() {
 		void run(async () => {
@@ -180,10 +188,21 @@
 	{:else if workspace.ready}
 		<!-- each view stays mounted (keeps its selection); only the shown one is active -->
 		<div hidden={section !== 'today'}>
-			<p class="placeholder">{workspace.data.habits.length === 0 ? 'No habits yet.' : `${workspace.data.habits.length} habits`}</p>
+			<DayView
+				{workspace}
+				active={section === 'today'}
+				onnewhabit={() => {
+					section = 'habits';
+					habitsView?.openNew();
+				}}
+				onedithabit={(habit) => {
+					section = 'habits';
+					habitsView?.openEdit(habit);
+				}}
+			/>
 		</div>
 		<div hidden={section !== 'habits'}>
-			<p class="placeholder">Habits</p>
+			<HabitsView bind:this={habitsView} {workspace} active={section === 'habits'} {notify} />
 		</div>
 	{/if}
 </main>
@@ -371,10 +390,6 @@
 	.notices .notice.error {
 		border-color: var(--negative);
 		background: var(--surface);
-	}
-	.placeholder {
-		padding: 1rem;
-		color: var(--muted);
 	}
 	.dismiss {
 		flex: none;

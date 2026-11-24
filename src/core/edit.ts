@@ -232,3 +232,15 @@ export function setEntry(data: DisciplineData, habit: Id, date: CivilDate, value
 export function toggleCheck(data: DisciplineData, habit: Id, date: CivilDate, now: UtcSeconds): DisciplineData {
 	return setEntry(data, habit, date, entryOn(data, habit, date) ? null : 1, now);
 }
+
+/**
+ * A typed amount: digits with one decimal separator, a dot or a comma (whichever the keyboard
+ * has), e.g. "30", "2.5", "2,5", ".5". Rounded to 3 decimals. Null for anything else (also for
+ * thousands separators like "1,000.5", which would be ambiguous), or for 0 or a negative amount.
+ */
+export function parseValueInput(text: string): number | null {
+	const t = text.trim();
+	if (!/^(\d+([.,]\d*)?|[.,]\d+)$/.test(t)) return null;
+	const value = roundValue(Number(t.replace(',', '.')));
+	return isEntryValue(value) ? value : null;
+}

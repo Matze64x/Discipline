@@ -15,18 +15,18 @@ async function importFile(page: Page, path: string) {
 
 test('import, persist, export and undo', async ({ page }) => {
 	await page.goto('/');
-	await expect(page.getByText('No habits yet')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 
 	await importFile(page, FIXTURE);
 	const dialog = page.getByRole('dialog', { name: 'Import “example.json”' });
 	await expect(dialog).toContainText('Habits: 3 added');
 	await expect(dialog).toContainText('Entries: 5 added');
 	await dialog.getByRole('button', { name: 'Import' }).click();
-	await expect(page.getByText('3 habits')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();
 
 	// the working copy survives a reload
 	await page.reload();
-	await expect(page.getByText('3 habits')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();
 	await expect(page.getByText('example.json')).toBeVisible();
 
 	// importing the same file again changes nothing
@@ -46,9 +46,9 @@ test('import, persist, export and undo', async ({ page }) => {
 
 	// undo restores the empty state, also after a reload
 	await page.getByRole('button', { name: 'Undo import' }).click();
-	await expect(page.getByText('No habits yet')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 	await page.reload();
-	await expect(page.getByText('No habits yet')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 	await expect(page.getByText('example.json')).toBeHidden();
 	await expect(page.getByRole('button', { name: 'Undo import' })).toBeHidden();
 });
@@ -84,7 +84,7 @@ test('if saving fails, nothing changes and the error is shown', async ({ page })
 	await importFile(page, FIXTURE);
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
 	await expect(page.getByRole('alert').filter({ hasText: 'Something went wrong' })).toContainText('The disk is full');
-	await expect(page.getByText('No habits yet')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Undo import' })).toBeHidden();
 });
 
@@ -97,15 +97,15 @@ test('a broken file is refused with the reason', async ({ page }, testInfo) => {
 	await expect(dialog).toContainText("can't be imported");
 	await expect(dialog).toContainText('entries[2].value');
 	await dialog.getByRole('button', { name: 'Close' }).click();
-	await expect(page.getByText('No habits yet')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 });
 
 test('another tab sees the import', async ({ page, context }) => {
 	await page.goto('/');
 	const other = await context.newPage();
 	await other.goto('/');
-	await expect(other.getByText('No habits yet')).toBeVisible();
+	await expect(other.getByRole('listbox', { name: 'Habits of the day' }).getByText('No habits yet.')).toBeVisible();
 	await importFile(page, FIXTURE);
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
-	await expect(other.getByText('3 habits')).toBeVisible();
+	await expect(other.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();
 });

@@ -8,7 +8,7 @@
 		const byGroup = new Map<string, { keys: string; description: string }[]>();
 		for (const s of shortcuts.available()) {
 			const list = byGroup.get(s.group) ?? [];
-			list.push({ keys: s.keys.map(displayKeys).join(' / '), description: s.description });
+			list.push({ keys: s.keysLabel ?? s.keys.map(displayKeys).join(' / '), description: s.description });
 			byGroup.set(s.group, list);
 		}
 		return [...byGroup];

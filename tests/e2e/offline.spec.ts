@@ -15,13 +15,13 @@ test('the installed app works offline, with its data', async ({ page, context })
 	await page.getByRole('button', { name: 'Import', exact: true }).click();
 	await (await chooser).setFiles(FIXTURE);
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
-	await expect(page.getByText('3 habits')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();
 
 	await context.setOffline(true);
 	// served by the service worker (Firefox's offline mode would also serve the HTTP cache)
 	const response = await page.reload();
 	expect(response?.fromServiceWorker()).toBe(true);
-	await expect(page.getByText('3 habits')).toBeVisible();
+	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();
 });
 
 test('everything is served below the base path and the app can be installed', async ({ page, request }) => {

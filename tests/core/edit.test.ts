@@ -11,6 +11,7 @@ import {
 	goalOn,
 	moveHabit,
 	parseDiscipline,
+	parseValueInput,
 	roundValue,
 	serializeDiscipline,
 	setArchived,
@@ -293,5 +294,19 @@ describe('cleanText', () => {
 	it('repairs text the file can’t hold', () => {
 		expect(cleanText(' a\ud800b\0 ')).toBe('a�b');
 		expect(cleanText('🧘')).toBe('🧘');
+	});
+});
+
+describe('typed amounts', () => {
+	it('accept a dot or a comma', () => {
+		expect(parseValueInput('30')).toBe(30);
+		expect(parseValueInput(' 2,5 ')).toBe(2.5);
+		expect(parseValueInput('2.5')).toBe(2.5);
+		expect(parseValueInput('.5')).toBe(0.5);
+		expect(parseValueInput('3.')).toBe(3);
+		expect(parseValueInput('1.0005')).toBe(1.001);
+	});
+	it('refuse anything else', () => {
+		for (const text of ['', '0', '0,0001', '-1', '1,000.5', '1.2.3', 'abc', '1e3', '2000000000']) expect(parseValueInput(text), text).toBeNull();
 	});
 });
