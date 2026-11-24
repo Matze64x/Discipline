@@ -1,0 +1,10 @@
+{
+  // Enforces that src/core stays platform-independent: no DOM, no Node, no Svelte types.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.core.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": ["src/core/**/*.ts", "types/core-env.d.ts"]
+}
