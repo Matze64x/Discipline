@@ -135,9 +135,11 @@ export function randomData(seed: number, size = 1): DisciplineData {
  * Edits often hit existing entries and habits, so two edits of the same base overlap. `check` is
  * called with the data after each edit.
  */
-export function randomEdit(data: DisciplineData, seed: number, count = 8, check?: (data: DisciplineData, action: string) => void): DisciplineData {
+export function randomEdit(data: DisciplineData, seed: number, count = 8, check?: (data: DisciplineData, action: string) => void, dense = false): DisciplineData {
 	const g = generator(seed);
-	const now = (1_790_000_000 + g.int(0, 1_000_000)) as UtcSeconds;
+	// dense: a few days and timestamps only, so two edits of the same base often collide and tie
+	const now = (1_790_000_000 + (dense ? g.int(0, 2) : g.int(0, 1_000_000))) as UtcSeconds;
+	const day = () => (dense ? addDays('2026-11-20' as CivilDate, g.int(0, 3)) : g.date());
 	for (let i = 0; i < count; i++) {
 		const habit = data.habits.length > 0 ? g.pick(data.habits) : undefined;
 		const action = habit ? g.int(0, 9) : 0;
@@ -150,7 +152,7 @@ export function randomEdit(data: DisciplineData, seed: number, count = 8, check?
 			} else if (action <= 5) {
 				name = 'setEntry';
 				const existing = data.entries.filter((e) => e.habit === habit.id);
-				const date = existing.length > 0 && g.chance(0.6) ? g.pick(existing).date : g.date();
+				const date = existing.length > 0 && g.chance(0.6) ? g.pick(existing).date : day();
 				const value = g.chance(0.3) ? null : habit.kind === 'check' ? 1 : g.amount();
 				data = setEntry(data, habit.id, date, value, now);
 			} else if (action === 6) {
@@ -165,10 +167,10 @@ export function randomEdit(data: DisciplineData, seed: number, count = 8, check?
 					goal: kind === habit.kind && g.chance(0.5) ? old.goal : g.goal(kind),
 					start: g.chance(0.2) ? g.date() : old.start,
 				};
-				data = updateHabit(data, habit.id, draft, g.date(), now);
+				data = updateHabit(data, habit.id, draft, day(), now);
 			} else if (action === 7) {
 				name = 'archive';
-				data = setArchived(data, habit.id, habit.archived ? null : g.date(), now);
+				data = setArchived(data, habit.id, habit.archived ? null : day(), now);
 			} else if (action === 8) {
 				name = 'move';
 				const before = g.chance(0.2) ? null : g.pick(data.habits).id;

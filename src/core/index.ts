@@ -5,3 +5,6 @@ export * from './equal';
 export * from './format';
 export * from './ids';
 export * from './model';
+export * from './merge';
+export * from './sync';
+export * from './peer-sync';
