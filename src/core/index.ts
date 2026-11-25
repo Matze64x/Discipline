@@ -9,3 +9,4 @@ export * from './merge';
 export * from './sync';
 export * from './peer-sync';
 export * from './progress';
+export * from './stats';

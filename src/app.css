@@ -182,3 +182,25 @@ kbd {
 	border-radius: 0.3rem;
 	padding: 0 0.3rem;
 }
+
+/* a habit's day in the stats (calendar, week dots; lib/stats/cells.ts): done in the accent color,
+   partly done lighter, missed grey, a day of a weekly/monthly goal without anything faint grey, a
+   day a daily goal doesn't ask for a small dot (nothing before the start or after the end) */
+.cell {
+	border-radius: 2px;
+}
+.cell.some {
+	background: color-mix(in srgb, var(--accent) calc(30% + 70% * var(--fill)), transparent);
+}
+.cell.missed {
+	background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+.cell.empty {
+	background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.cell.off {
+	background: radial-gradient(circle, var(--border) 0 22%, transparent 26%);
+}
+.cell.open {
+	box-shadow: inset 0 0 0 1.5px var(--accent);
+}
