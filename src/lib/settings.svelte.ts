@@ -10,17 +10,20 @@ const KEY = 'discipline-settings-v1';
 
 interface Values {
 	dateStyle: DateStyle;
+	/** Installed web app: new versions automatically, or only when the user taps "Update" */
+	updates: 'auto' | 'ask';
 	/** Desktop app: the file the data is backed up to, or null for none */
 	backupPath: string | null;
 }
 
-const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', backupPath: null };
+const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', updates: 'auto', backupPath: null };
 
 function load(): Values {
 	try {
 		const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Values>;
 		return {
 			dateStyle: DATE_STYLES.includes(raw.dateStyle as DateStyle) ? raw.dateStyle! : DEFAULTS.dateStyle,
+			updates: raw.updates === 'ask' ? 'ask' : 'auto',
 			backupPath: typeof raw.backupPath === 'string' && raw.backupPath !== '' ? raw.backupPath : null,
 		};
 	} catch {
@@ -40,6 +43,13 @@ class Settings {
 	}
 	set dateStyle(dateStyle: DateStyle) {
 		this.#set({ dateStyle });
+	}
+
+	get updates(): 'auto' | 'ask' {
+		return this.#values.updates;
+	}
+	set updates(updates: 'auto' | 'ask') {
+		this.#set({ updates });
 	}
 
 	get backupPath(): string | null {

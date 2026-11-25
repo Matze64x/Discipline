@@ -26,6 +26,7 @@ tests/generated/
 tests/e2e-results/
 playwright-report/
 dist-pages
+dist-update
 
 # Claude's local notes and workspace, and the plan: not part of the repository
 /.claude/

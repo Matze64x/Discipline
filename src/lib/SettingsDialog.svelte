@@ -8,6 +8,8 @@
 	import { chooseFileToSave, dataLocation, isDesktop, suggestedBackupPath } from './desktop';
 	import { settings } from './settings.svelte';
 	import { displayKeys } from './shortcuts.svelte';
+	import Segmented from './ui/Segmented.svelte';
+	import { APP_VERSION, updates } from './updates.svelte';
 	import type { DesktopSync } from './sync/desktop-sync.svelte';
 	import Devices from './sync/Devices.svelte';
 	import type { PhoneSync } from './sync/phone-sync.svelte';
@@ -122,6 +124,30 @@
 				{/if}
 			{/await}
 		{/if}
+		<hr />
+		<h3>App</h3>
+		<p class="muted version">Version {APP_VERSION}</p>
+		{#if updates.supported}
+			<div class="row">
+				{#if updates.available}
+					<button type="button" class="primary" disabled={updates.busy} onclick={() => void updates.apply()}>Update</button>
+					<span class="muted status">New version available.</span>
+				{:else}
+					<button type="button" disabled={updates.busy} onclick={() => void updates.check()}>Check for updates</button>
+					{#if updates.checked !== null && !updates.busy}<span class="muted status">Up to date.</span>{/if}
+				{/if}
+			</div>
+			{#if updates.failure}<p class="error" role="alert">{updates.failure}</p>{/if}
+			<span class="label-text">Updates</span>
+			<Segmented
+				label="Updates"
+				options={[
+					{ value: 'auto', label: 'Automatic' },
+					{ value: 'ask', label: 'When I tap Update' },
+				]}
+				bind:value={() => settings.updates, (v) => void updates.setAutomatic(v === 'auto')}
+			/>
+		{/if}
 		<div class="buttons"><button type="button" class="primary" onclick={onclose}>Done</button></div>
 	</div>
 </Modal>
@@ -141,6 +167,16 @@
 	}
 	.note {
 		margin: 0 0 0.5rem;
+	}
+	.version {
+		margin: 0;
+	}
+	.status {
+		margin: 0;
+		align-self: center;
+	}
+	.label-text {
+		color: var(--muted);
 	}
 	h3 {
 		margin: 0;

@@ -22,6 +22,14 @@ export default defineConfig({
 			url: 'http://localhost:5298/Discipline/',
 			reuseExistingServer: false,
 		},
+		// two published builds of different versions, for updates (tests/e2e/update-server.mjs): one
+		// server per project (5398 Firefox, 5399 iPhone), since publishing switches a whole server
+		{
+			command:
+				'export DISCIPLINE_BASE=/Discipline/ && npx vite build --outDir dist-update/first --emptyOutDir && DISCIPLINE_VERSION_SUFFIX=next npx vite build --outDir dist-update/next --emptyOutDir && (node tests/e2e/update-server.mjs 5399 & node tests/e2e/update-server.mjs 5398)',
+			url: 'http://127.0.0.1:5398/Discipline/',
+			reuseExistingServer: false,
+		},
 	],
 	projects: [
 		{ name: 'firefox', use: { ...devices['Desktop Firefox'] } },

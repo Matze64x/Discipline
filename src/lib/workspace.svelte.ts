@@ -251,6 +251,16 @@ export class Workspace implements SyncStore {
 		});
 	}
 
+	/** Waits until the changes made so far are saved (e.g. before the app reloads) */
+	async settled(): Promise<void> {
+		// (a task can queue another one: wait until nothing new was queued)
+		let queue;
+		do {
+			queue = this.#queue;
+			await queue.catch(() => undefined);
+		} while (queue !== this.#queue);
+	}
+
 	/** Writes a pending backup right away (e.g. the window is closing). */
 	async flushBackup(): Promise<void> {
 		// a change still being saved schedules its backup only when it's done: wait for it

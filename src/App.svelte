@@ -15,7 +15,8 @@
 	import { PhoneSync } from './lib/sync/phone-sync.svelte';
 	import { setPreferences, type SyncReport } from './core';
 	import { clock } from './lib/clock.svelte';
-	import { forgetOldPreferences, oldPreferences } from './lib/settings.svelte';
+	import { forgetOldPreferences, oldPreferences, settings } from './lib/settings.svelte';
+	import { updates } from './lib/updates.svelte';
 
 	const SECTIONS = [
 		{ id: 'today', label: 'Today', keys: 'g t' },
@@ -66,6 +67,14 @@
 			});
 		return () => void stop.then((f) => f());
 	});
+
+	// the installed web app: its service worker, and new versions (see updates.svelte.ts)
+	$effect(() => {
+		const stop = updates.start(() => workspace.settled());
+		return () => void stop.then((f) => f());
+	});
+	/** "New version available" was closed (until the next start) */
+	let updateDismissed = $state(false);
 
 	// "today" follows the data's day start (shared by all synced devices)
 	$effect(() => {
@@ -264,6 +273,13 @@
 		<p class="notice error" role="alert">
 			<span>The backup file couldn't be written: {workspace.backupError} It's tried again with the next change.</span>
 			<button class="dismiss" aria-label="Dismiss" title="Dismiss" onclick={() => (workspace.backupError = null)}>×</button>
+		</p>
+	{/if}
+	{#if updates.available && settings.updates === 'ask' && !updateDismissed}
+		<p class="notice" role="status">
+			<span>New version available.</span>
+			<button class="link" disabled={updates.busy} onclick={() => void updates.apply()}>Update</button>
+			<button class="dismiss" aria-label="Dismiss" title="Dismiss" onclick={() => (updateDismissed = true)}>×</button>
 		</p>
 	{/if}
 	{#each notices.list as n (n.id)}
