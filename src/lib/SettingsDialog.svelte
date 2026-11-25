@@ -54,14 +54,6 @@
 
 <Modal title="Settings" {onclose}>
 	<div class="settings">
-		<span class="label first">File</span>
-		<div class="row">
-			<button type="button" disabled={busy} title={displayKeys('Mod+o')} onclick={onimport}>Import</button>
-			<button type="button" disabled={busy} title={displayKeys('Mod+s')} onclick={onexport}>Export</button>
-			{#if workspace.canUndoImport}<button type="button" disabled={busy} onclick={onundoimport}>Undo import</button>{/if}
-		</div>
-		{#if workspace.fileName}<p class="muted file">Last file: <span class="name">{workspace.fileName}</span></p>{/if}
-		<hr />
 		<label for="date-style">Date format</label>
 		<select id="date-style" value={settings.dateStyle} onchange={(e) => (settings.dateStyle = e.currentTarget.value as DateStyle)}>
 			{#each DATE_STYLES as style (style)}
@@ -80,8 +72,18 @@
 			<option value={7}>Sunday</option>
 		</select>
 		<p class="muted">These settings apply to this device only.</p>
+		<hr />
+		<Devices {sync} />
+		<hr />
+		<h3>Data</h3>
+		<div class="row">
+			<button type="button" disabled={busy} title={displayKeys('Mod+o')} onclick={onimport}>Import</button>
+			<button type="button" disabled={busy} title={displayKeys('Mod+s')} onclick={onexport}>Export</button>
+			{#if workspace.canUndoImport}<button type="button" disabled={busy} onclick={onundoimport}>Undo import</button>{/if}
+		</div>
+		{#if workspace.fileName}<p class="muted file">Last file: <span class="name">{workspace.fileName}</span></p>{/if}
 		{#if isDesktop}
-			<span class="label">Backup file</span>
+			<h4>Backup file</h4>
 			<div class="backup">
 				{#if settings.backupPath}
 					<code class="path">{settings.backupPath}</code>
@@ -108,8 +110,6 @@
 				{/if}
 			{/await}
 		{/if}
-		<hr />
-		<Devices {sync} />
 		<div class="buttons"><button type="button" class="primary" onclick={onclose}>Done</button></div>
 	</div>
 </Modal>
@@ -127,12 +127,13 @@
 		font-size: 0.85rem;
 		margin: 0.5rem 0 0;
 	}
-	.label {
-		color: var(--muted);
-		margin-top: 0.75rem;
+	h3 {
+		margin: 0;
+		font-size: 1.1rem;
 	}
-	.label.first {
-		margin-top: 0;
+	h4 {
+		margin: 0.75rem 0 0;
+		font-size: 1rem;
 	}
 	.file {
 		margin: 0;
