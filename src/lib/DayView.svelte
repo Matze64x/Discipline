@@ -2,11 +2,13 @@
 	A day's habits (today unless another day is chosen): check them off, or enter amounts. ←/→ go
 	to the day before or after, t back to today. In the focused list, Space or Enter checks the
 	selected habit off (or opens its amount), a digit starts entering an amount, Delete clears it,
-	e edits the habit. A tap on a row (or a click on its mark) does the same as Space.
+	e edits the habit. An amount habit's buttons (and keys): +1 (+), add an amount (a), complete:
+	add what's missing to meet the goal (c). A tap on a row (or a click on its mark) does the same
+	as Space.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { addDays, entryOn, isActiveOn, progressOn, setEntry, toggleCheck, type CivilDate, type Habit, type Id, type Progress } from '../core';
+	import { addDays, addToEntry, entryOn, isActiveOn, progressOn, remainingOf, setEntry, toggleCheck, type CivilDate, type Habit, type Id, type Progress } from '../core';
 	import AmountDialog from './AmountDialog.svelte';
 	import { attempt } from './attempt';
 	import { clock } from './clock.svelte';
@@ -48,7 +50,7 @@
 	let list: SelectableList<Row, Id>;
 	let listElement = $state<HTMLElement>();
 	/** The amount dialog: for which habit and day, with the key that opened it (if typed) */
-	let entering = $state.raw<{ habit: Habit; date: CivilDate; value: number | null; typed: string | null } | null>(null);
+	let entering = $state.raw<{ habit: Habit; date: CivilDate; value: number | null; typed: string | null; adding: boolean } | null>(null);
 
 	// the selected habit isn't on the day shown (another day, archived, deleted): select the first
 	// (on a day without any, the selection stays for when the habit shows again)
@@ -78,7 +80,7 @@
 		if (!row) return;
 		selectedId = row.habit.id;
 		if (row.habit.kind === 'amount') {
-			entering = { habit: row.habit, date, value: row.value, typed };
+			entering = { habit: row.habit, date, value: row.value, typed, adding: false };
 			return;
 		}
 		const { habit } = row;
@@ -90,6 +92,30 @@
 	function setValue(habit: Habit, day: CivilDate, value: number | null) {
 		const label = value === null ? `Clear “${habit.name}”` : `Enter “${habit.name}”`;
 		return attempt(showError, () => workspace.edit(label, (d, now) => setEntry(d, habit.id, day, value, now)));
+	}
+
+	function add(habit: Habit, day: CivilDate, amount: number, label = `Add ${formatValue(amount)} to “${habit.name}”`) {
+		return attempt(showError, () => workspace.edit(label, (d, now) => addToEntry(d, habit.id, day, amount, now)));
+	}
+
+	/** Adds what's missing to meet the goal (nothing when it's met, or not due that day) */
+	function complete(row: Row) {
+		selectedId = row.habit.id;
+		const missing = remainingOf(row.progress);
+		if (row.habit.kind === 'amount' && row.progress.due && missing > 0) void add(row.habit, date, missing, `Complete “${row.habit.name}”`);
+	}
+
+	function openAdd(row: Row) {
+		selectedId = row.habit.id;
+		entering = { habit: row.habit, date, value: row.value, typed: null, adding: true };
+	}
+
+	/** A row's button: acts on its row only (not also as a tap on the row), the list keeps the focus */
+	function onButton(e: MouseEvent, row: Row, run: (row: Row) => void) {
+		e.stopPropagation();
+		selectedId = row.habit.id;
+		run(row);
+		list.focus();
 	}
 
 	function closeAmount() {
@@ -112,6 +138,9 @@
 					description: 'Type an amount',
 					run: (e: KeyboardEvent) => (selected?.habit.kind === 'amount' ? activate(selected, e.key) : undefined),
 				},
+				{ keys: ['+'], description: 'Add 1', run: () => selected?.habit.kind === 'amount' && void add(selected.habit, date, 1) },
+				{ keys: ['a'], description: 'Add an amount', run: () => selected?.habit.kind === 'amount' && openAdd(selected) },
+				{ keys: ['c'], description: 'Complete (add what’s missing)', run: () => selected && complete(selected) },
 				{ keys: ['Delete', 'Backspace'], description: 'Clear the day', run: () => selected && void setValue(selected.habit, date, null) },
 				{ keys: ['e'], description: 'Edit the habit', run: () => selected && onedithabit(selected.habit) },
 			].map((s) => ({ ...s, group: 'Day', focusIn: () => listElement, visible: () => active, when: () => active && !!selected })),
@@ -159,17 +188,31 @@
 				tabindex="-1"
 				aria-hidden="true"
 				onmousedown={(e) => e.preventDefault()}
-				onclick={(e) => {
-					// (else the list also handles the click, and a tap would act twice)
-					e.stopPropagation();
-					activate(r);
-					list.focus();
-				}}
+				onclick={(e) => onButton(e, r, activate)}
 			>
-				{#if habit.kind === 'check'}{value === null ? '' : '✓'}{:else}{value === null ? '+' : formatValue(value)}{/if}
+				{#if habit.kind === 'check'}{value === null ? '' : '✓'}{:else}{formatValue(value ?? 0)}{/if}
 			</button>
-			<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
-			{#if text}<span class="progress" class:met={progress.met}>{text}</span>{/if}
+			<div class="text">
+				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
+				{#if text}<span class="progress" class:met={progress.met}>{text}</span>{/if}
+			</div>
+			{#if habit.kind === 'amount'}
+				<!-- (never focused, like the mark: the keys act on the list's selection) -->
+				{@const completable = progress.due && !progress.met}
+				<span class="actions">
+					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
+					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>
+					<button
+						type="button"
+						tabindex="-1"
+						title="Complete (c)"
+						aria-label="Complete"
+						aria-disabled={!completable}
+						onmousedown={(e) => e.preventDefault()}
+						onclick={(e) => onButton(e, r, complete)}>✓</button
+					>
+				</span>
+			{/if}
 		</div>
 	{/snippet}
 	{#snippet empty()}
@@ -191,11 +234,13 @@
 		date={e.date}
 		value={e.value}
 		typed={e.typed}
+		adding={e.adding}
 		onsave={(value) => {
 			// (closing clears `entering`, and with it `e`: take what's needed first)
-			const { habit, date: day } = e;
+			const { habit, date: day, adding } = e;
 			closeAmount();
-			void setValue(habit, day, value);
+			if (!adding) void setValue(habit, day, value);
+			else if (value !== null) void add(habit, day, value);
 		}}
 		onclose={closeAmount}
 	/>
@@ -252,9 +297,13 @@
 		background: var(--color);
 		color: #fff;
 	}
-	.name {
-		flex: 1 0 40%;
+	/* the name, with the progress below it */
+	.text {
+		flex: 1 1 auto;
 		min-width: 0;
+		display: grid;
+	}
+	.name {
 		overflow-wrap: anywhere;
 	}
 	.visually-hidden {
@@ -266,10 +315,21 @@
 		white-space: nowrap;
 	}
 	.progress {
-		flex: 0 1 auto;
 		color: var(--muted);
-		font-size: 0.9rem;
-		text-align: right;
+		font-size: 0.85rem;
+	}
+	.actions {
+		flex: none;
+		display: flex;
+		gap: 0.25rem;
+	}
+	.actions button {
+		min-width: 2.4rem;
+		height: 2.4rem;
+		padding: 0 0.4rem;
+	}
+	.actions button[aria-disabled='true'] {
+		opacity: 0.4;
 	}
 	.progress.met {
 		color: var(--positive);

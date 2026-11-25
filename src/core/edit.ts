@@ -21,6 +21,7 @@ import {
 	isEntryValue,
 	isPosition,
 	isValidGoal,
+	MAX_VALUE,
 	latestGoal,
 	startOf,
 	type DatedGoal,
@@ -226,6 +227,18 @@ export function setEntry(data: DisciplineData, habit: Id, date: CivilDate, value
 	if (value === null) return { ...data, entries: data.entries.toSpliced(index, 1) };
 	const entry: Entry = { habit, date, value, edited: stamp(old, now) };
 	return { ...data, entries: old ? data.entries.with(index, entry) : data.entries.toSpliced(-index - 1, 0, entry) };
+}
+
+/**
+ * Adds to what was done on a day of an amount habit (nothing entered counts as 0); the sum is
+ * rounded like typed input. `amount` must be positive.
+ */
+export function addToEntry(data: DisciplineData, habit: Id, date: CivilDate, amount: number, now: UtcSeconds): DisciplineData {
+	if (!(amount > 0)) throw new EditError(`Invalid amount ${amount}`);
+	if (data.habits[habitIndex(data, habit)]!.kind !== 'amount') throw new EditError('Only amounts add up');
+	const value = roundValue((entryOn(data, habit, date)?.value ?? 0) + amount);
+	if (value > MAX_VALUE) throw new EditError('That is more than an entry can hold.');
+	return setEntry(data, habit, date, value, now);
 }
 
 /** Marks a check habit done on a day, or not done if it was */

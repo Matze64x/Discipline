@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addHabit,
+	addToEntry,
+	remainingOf,
 	cleanText,
 	compareEntries,
 	compareHabits,
@@ -267,6 +269,24 @@ describe('entries', () => {
 		for (const value of [0, -1, 0.0001, Infinity, NaN, 1e9 + 1]) expect(() => setEntry(data, read, day('2026-11-02'), value, T1), String(value)).toThrow(EditError);
 		expect(() => setEntry(data, run, day('2026-11-02'), 2, T1)).toThrow(EditError);
 		for (const date of ['garbage', '2026-02-30', '2201-01-01']) expect(() => setEntry(data, run, day(date), 1, T1), date).toThrow(EditError);
+	});
+
+	it('adds to an amount, starting from nothing', () => {
+		const { data, read, run } = withHabits();
+		const once = addToEntry(data, read, day('2026-11-02'), 1, T1);
+		expect(entryOn(once, read, day('2026-11-02'))?.value).toBe(1);
+		const twice = addToEntry(once, read, day('2026-11-02'), 0.2, T2);
+		expect(entryOn(twice, read, day('2026-11-02'))).toEqual({ habit: read, date: '2026-11-02', value: 1.2, edited: T2 });
+		expect(entryOn(addToEntry(setEntry(data, read, day('2026-11-02'), 0.1, T1), read, day('2026-11-02'), 0.2, T2), read, day('2026-11-02'))?.value).toBe(0.3);
+		for (const amount of [0, -1, NaN]) expect(() => addToEntry(once, read, day('2026-11-02'), amount, T2), String(amount)).toThrow(EditError);
+		expect(() => addToEntry(setEntry(data, read, day('2026-11-02'), 1e9, T1), read, day('2026-11-02'), 1, T2)).toThrow('more than an entry can hold');
+		expect(() => addToEntry(data, run, day('2026-11-02'), 1, T1)).toThrow(EditError);
+	});
+
+	it('tells what is missing to meet a goal', () => {
+		expect(remainingOf({ done: 20, target: 30 })).toBe(10);
+		expect(remainingOf({ done: 0.1, target: 0.3 })).toBe(0.2);
+		expect(remainingOf({ done: 40, target: 30 })).toBe(0);
 	});
 
 	it('rounds typed amounts to what an entry holds', () => {

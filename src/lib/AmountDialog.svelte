@@ -1,7 +1,10 @@
-<!-- Enters how much was done of an amount habit on a day (empty or 0: nothing). -->
+<!--
+	Enters how much was done of an amount habit on a day (empty or 0: nothing), or (adding) how much
+	to add to it (empty or 0: nothing added).
+-->
 <script lang="ts">
 	import { parseValueInput, type CivilDate, type Habit } from '../core';
-	import { formatDate, formatValue } from './display';
+	import { formatDate, formatValue, withUnit } from './display';
 	import Modal from './ui/Modal.svelte';
 
 	let {
@@ -9,6 +12,7 @@
 		date,
 		value,
 		typed = null,
+		adding = false,
 		onsave,
 		onclose,
 	}: {
@@ -18,17 +22,20 @@
 		value: number | null;
 		/** A key typed to open the dialog: the field starts with it instead of the value */
 		typed?: string | null;
+		/** The field is an amount to add to `value`, not the value itself */
+		adding?: boolean;
+		/** The day's amount (null: nothing), or when adding the amount to add */
 		onsave: (value: number | null) => void;
 		onclose: () => void;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
-	let text = $state(typed ?? (value === null ? '' : formatValue(value)));
+	let text = $state(typed ?? (value === null || adding ? '' : formatValue(value)));
 	let failure = $state<string | null>(null);
 
 	function save() {
 		// (nothing or 0: nothing done)
-		if (text.trim() === '' || /^0*([.,]0*)?$/.test(text.trim())) return onsave(null);
+		if (text.trim() === '' || /^0*([.,]0*)?$/.test(text.trim())) return adding ? onclose() : onsave(null);
 		const parsed = parseValueInput(text);
 		if (parsed === null) return void (failure = 'Enter a number, or nothing.');
 		onsave(parsed);
@@ -48,7 +55,8 @@
 				type="text"
 				inputmode="decimal"
 				autocomplete="off"
-				aria-label="Amount"
+				aria-label={adding ? 'Add' : 'Amount'}
+					placeholder={adding ? '+' : undefined}
 				bind:value={text}
 				autofocus
 				onfocus={(e) => {
@@ -58,6 +66,7 @@
 			/>
 			{#if habit.unit}<span class="unit">{habit.unit}</span>{/if}
 		</div>
+		{#if adding}<p class="unit now">Now: {withUnit(value ?? 0, habit.unit)}</p>{/if}
 		{#if failure}<p class="error" role="alert">{failure}</p>{/if}
 		<div class="buttons">
 			<div class="main-actions">
@@ -84,6 +93,9 @@
 	}
 	.unit {
 		color: var(--muted);
+	}
+	.now {
+		margin: 0;
 	}
 	.error {
 		color: var(--negative);

@@ -87,6 +87,11 @@ export function progressOn(data: DisciplineData, habit: Habit, date: CivilDate, 
 	return { goal, from, to, due, done, target, met: done >= target };
 }
 
+/** What's still missing to meet the goal in the period (0 when met) */
+export function remainingOf(progress: Pick<Progress, 'done' | 'target'>): number {
+	return Math.max(0, Math.round((progress.target - progress.done) * 1000) / 1000);
+}
+
 /** How many days of a period are left from `date` on, including it */
 export function daysLeft(progress: Pick<Progress, 'to'>, date: CivilDate): number {
 	return daysBetween(date, progress.to) + 1;

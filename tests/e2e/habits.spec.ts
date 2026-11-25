@@ -107,6 +107,35 @@ test('after a click on a mark or a day button, the keys still act on the list', 
 	await expect(page.getByRole('heading', { name: /Yesterday/ })).toBeVisible();
 });
 
+test('amounts: +1, add an amount and complete, by keys and clicks', async ({ page }) => {
+	await open(page);
+	await addHabit(page, 'Read', async (dialog) => {
+		await dialog.getByText('Amount', { exact: true }).click();
+		await dialog.getByLabel('Goal', { exact: true }).fill('30');
+		await dialog.getByLabel('Unit').fill('min');
+	});
+	await keys(page, 'g', 't', '+', '+');
+	await expect(dayRow(page, 'Read')).toContainText('2 / 30 min');
+	await keys(page, 'a');
+	const dialog = page.getByRole('dialog', { name: /Read/ });
+	await expect(dialog).toContainText('Now: 2 min');
+	await dialog.getByLabel('Add').fill('10,5');
+	await keys(page, 'Enter');
+	await expect(dialog).toBeHidden();
+	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30 min');
+	await keys(page, 'c');
+	await expect(dayRow(page, 'Read')).toContainText('30 / 30 min');
+	// met: complete adds nothing more
+	await expect(dayRow(page, 'Read').getByRole('button', { name: 'Complete' })).toBeDisabled();
+	await keys(page, 'c');
+	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).click();
+	await expect(dayRow(page, 'Read')).toContainText('31 / 30 min');
+	await keys(page, 'Control+z', 'Control+z');
+	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30 min');
+	// the list kept the focus through the clicks
+	await expect(dayList(page)).toBeFocused();
+});
+
 test('a new goal counts from today; earlier days keep theirs, and say so', async ({ page }) => {
 	await open(page, new Date(2026, 10, 16, 20, 0));
 	await addHabit(page, 'Read', async (dialog) => {
@@ -188,4 +217,5 @@ test('the shortcut help lists the day keys', async ({ page }) => {
 	await expect(help).toContainText('0–9');
 	await expect(help).toContainText('Type an amount');
 	await expect(help).toContainText('Check off');
+	await expect(help).toContainText('Complete');
 });
