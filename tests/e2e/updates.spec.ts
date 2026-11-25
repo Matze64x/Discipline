@@ -47,11 +47,11 @@ test('the settings show the version and check for updates', async ({ page }) => 
 	await expect(settings).toContainText('Up to date.');
 });
 
-test('“When I tap Update”: a new version waits until Update, then takes over', async ({ context }) => {
+test('manual updates: a new version waits until Update, then takes over', async ({ context }) => {
 	let page = await context.newPage();
 	await openPublished(page);
 	const settings = await openSettings(page);
-	await settings.getByText('When I tap Update').click();
+	await settings.getByText('Manual', { exact: true }).click();
 	await publishNext(page);
 	await settings.getByRole('button', { name: 'Check for updates' }).click();
 	await expect(settings).toContainText('New version available.');
@@ -83,7 +83,7 @@ test('“When I tap Update”: a new version waits until Update, then takes over
 	await waitForApp(page);
 	expect(await runningVersion(page)).toBe('next');
 	await expect(updateNotice(page)).toHaveCount(0);
-	await expect((await openSettings(page)).getByLabel('When I tap Update')).toBeChecked();
+	await expect((await openSettings(page)).getByLabel('Manual', { exact: true })).toBeChecked();
 });
 
 test('automatic: a new version installs in the background and takes over when the app is hidden', async ({ page }) => {

@@ -139,14 +139,17 @@
 			</div>
 			{#if updates.failure}<p class="error" role="alert">{updates.failure}</p>{/if}
 			<span class="label-text">Updates</span>
-			<Segmented
-				label="Updates"
-				options={[
-					{ value: 'auto', label: 'Automatic' },
-					{ value: 'ask', label: 'When I tap Update' },
-				]}
-				bind:value={() => settings.updates, (v) => void updates.setAutomatic(v === 'auto')}
-			/>
+			<!-- (in a row: the settings' grid would stretch it over the whole width) -->
+			<div class="row">
+				<Segmented
+					label="Updates"
+					options={[
+						{ value: 'auto', label: 'Automatic' },
+						{ value: 'ask', label: 'Manual' },
+					]}
+					bind:value={() => settings.updates, (v) => void updates.setAutomatic(v === 'auto')}
+				/>
+			</div>
 		{/if}
 		<div class="buttons"><button type="button" class="primary" onclick={onclose}>Done</button></div>
 	</div>
