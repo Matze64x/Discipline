@@ -8,12 +8,11 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { addDays, addToEntry, entryOn, isActiveOn, progressOn, remainingOf, setEntry, toggleCheck, type CivilDate, type Habit, type Id, type Progress } from '../core';
+	import { addDays, entryOn, isActiveOn, progressOn, type CivilDate, type Habit, type Id, type Progress } from '../core';
 	import AmountDialog from './AmountDialog.svelte';
-	import { attempt } from './attempt';
 	import { clock } from './clock.svelte';
 	import { describeProgress, formatDate, formatValue, formatWeekday } from './display';
-	import { showError } from './notices.svelte';
+	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
 	import { shortcuts } from './shortcuts.svelte';
 	import SelectableList from './ui/SelectableList.svelte';
 	import type { Workspace } from './workspace.svelte';
@@ -82,26 +81,16 @@
 			entering = { habit: row.habit, date, value: row.value, typed, adding: false };
 			return;
 		}
-		const { habit } = row;
-		const day = date;
-		const label = `${row.value === null ? 'Check off' : 'Uncheck'} “${habit.name}”`;
-		void attempt(showError, () => workspace.edit(label, (d, now) => toggleCheck(d, habit.id, day, now)));
+		void toggleDay(workspace, row.habit, date, row.value !== null);
 	}
 
-	function setValue(habit: Habit, day: CivilDate, value: number | null) {
-		const label = value === null ? `Clear “${habit.name}”` : `Enter “${habit.name}”`;
-		return attempt(showError, () => workspace.edit(label, (d, now) => setEntry(d, habit.id, day, value, now)));
-	}
-
-	function add(habit: Habit, day: CivilDate, amount: number, label = `Add ${formatValue(amount)} to “${habit.name}”`) {
-		return attempt(showError, () => workspace.edit(label, (d, now) => addToEntry(d, habit.id, day, amount, now)));
-	}
+	const setValue = (habit: Habit, day: CivilDate, value: number | null) => setDay(workspace, habit, day, value);
+	const add = (habit: Habit, day: CivilDate, amount: number) => addToDay(workspace, habit, day, amount);
 
 	/** Adds what's missing to meet the goal (nothing when it's met, or not due that day) */
 	function complete(row: Row) {
 		selectedId = row.habit.id;
-		const missing = remainingOf(row.progress);
-		if (row.habit.kind === 'amount' && row.progress.due && missing > 0) void add(row.habit, date, missing, `Complete “${row.habit.name}”`);
+		void completeDay(workspace, row.habit, date, row.progress);
 	}
 
 	function openAdd(row: Row) {
@@ -197,7 +186,7 @@
 			</div>
 			{#if habit.kind === 'amount'}
 				<!-- (never focused, like the mark: the keys act on the list's selection) -->
-				{@const completable = progress.due && !progress.met}
+				{@const completable = canComplete(habit, progress)}
 				<span class="actions">
 					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
 					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>

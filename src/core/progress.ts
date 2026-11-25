@@ -87,6 +87,24 @@ export function progressOn(data: DisciplineData, habit: Habit, date: CivilDate, 
 	return { goal, from, to, due, done, target, met: done >= target };
 }
 
+/**
+ * How the days `from`…`to` went for a habit, on the days its goal was a daily one: how many were
+ * due (active, a weekday of the goal) and how many of those met it. Days after `today` count as
+ * due only if `future` (to show "2 of 5" for a week still running).
+ */
+export function daysMet(data: DisciplineData, habit: Habit, from: CivilDate, to: CivilDate, today: CivilDate, future = true): { met: number; due: number } {
+	let [met, due] = [0, 0];
+	for (let d = from; d <= to; d = addDays(d, 1)) {
+		if (!future && d > today) break;
+		// (the week start doesn't matter for daily goals)
+		const progress = progressOn(data, habit, d, 1);
+		if (!progress || progress.goal.period !== 'day' || !progress.due) continue;
+		due++;
+		if (progress.met && d <= today) met++;
+	}
+	return { met, due };
+}
+
 /** What's still missing to meet the goal in the period (0 when met) */
 export function remainingOf(progress: Pick<Progress, 'done' | 'target'>): number {
 	return Math.max(0, Math.round((progress.target - progress.done) * 1000) / 1000);
