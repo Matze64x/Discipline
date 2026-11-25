@@ -64,7 +64,7 @@
 	}
 </script>
 
-<Modal title="Settings" {onclose}>
+<Modal title="Settings" closeButton {onclose}>
 	<div class="settings">
 		<label for="day-start">New day starts at</label>
 		<select id="day-start" disabled={busy} value={workspace.data.preferences.dayStart} onchange={(e) => setPreference({ dayStart: Number(e.currentTarget.value) })}>

@@ -151,7 +151,7 @@
 	/** Adds what's missing to meet the goal (nothing when it's met, or not due that day) */
 	function complete(row: Row) {
 		selectedId = row.habit.id;
-		void completeDay(workspace, row.habit, date, row.progress);
+		void completeDay(workspace, row.habit, date, row.progress, row.value);
 	}
 
 	function openAdd(row: Row) {
@@ -229,6 +229,7 @@
 	{#snippet row(r)}
 		{@const { habit, progress, value } = r}
 		{@const daily = progress.goal.period === 'day'}
+		{@const completable = canComplete(habit, progress, value)}
 		{@const filled = habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met}
 		<div class="row" class:off={!progress.due && value === null}>
 			<!--
@@ -275,12 +276,12 @@
 					</span>
 				{/if}
 			</div>
-			{#if habit.kind === 'amount'}
-				<!-- (never focused, like the mark: the keys act on the list's selection) -->
-				{@const completable = canComplete(habit, progress)}
-				<span class="actions">
+			<!-- (never focused, like the mark: the keys act on the list's selection; ✓ for every habit) -->
+			<span class="actions">
+				{#if habit.kind === 'amount'}
 					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
 					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>
+				{/if}
 					<button
 						type="button"
 						tabindex="-1"
@@ -291,7 +292,6 @@
 						onclick={(e) => onButton(e, r, complete)}>✓</button
 					>
 				</span>
-			{/if}
 		</div>
 	{/snippet}
 	{#snippet empty()}
@@ -387,11 +387,11 @@
 	.dot.done {
 		background: var(--color);
 	}
+	/* (a smaller dot drawn inside the same box: scaling the box would leave uneven gaps) */
 	.dot.off {
 		border: none;
-		background: var(--color);
-		opacity: 0.35;
-		transform: scale(0.8);
+		background: radial-gradient(circle, var(--color) 0 45%, transparent 47%);
+		opacity: 0.5;
 	}
 	/* (today among the days still to come) */
 	.dot.open.today {
@@ -403,8 +403,8 @@
 	.dot.missed::after {
 		content: '';
 		position: absolute;
-		left: -0.2rem;
-		right: -0.2rem;
+		left: -0.1rem;
+		right: -0.1rem;
 		top: calc(50% - 1px);
 		height: 2px;
 		background: var(--muted);

@@ -322,3 +322,29 @@ test('the days above: week or month, the week’s dots and the period bars', asy
 	await keys(page, 'm');
 	await expect(page.getByRole('heading', { name: '23.11. – 29.11.' })).toBeVisible();
 });
+
+test('✓ completes any habit; a double click is two clicks, never the amount dialog', async ({ page }) => {
+	await open(page);
+	await addHabit(page, 'Meditate');
+	await addHabit(page, 'Read', async (dialog) => {
+		await dialog.getByText('Amount', { exact: true }).click();
+		await dialog.getByLabel('Goal', { exact: true }).fill('30');
+	});
+	await keys(page, 'g', 't');
+	// a yes/no habit has ✓ too: it checks it off, then there's nothing more to complete
+	const complete = dayRow(page, 'Meditate').getByRole('button', { name: 'Complete' });
+	await complete.click();
+	await expect(dayRow(page, 'Meditate')).toContainText('(done)');
+	await expect(complete).toBeDisabled();
+	// +1 twice in quick succession: 2, and no dialog
+	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).dblclick();
+	await expect(dayRow(page, 'Read')).toContainText('2 / 30');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('the settings close with the × at their top', async ({ page }) => {
+	await open(page);
+	const settings = await openSettings(page);
+	await settings.getByRole('button', { name: 'Close' }).click();
+	await expect(settings).toBeHidden();
+});

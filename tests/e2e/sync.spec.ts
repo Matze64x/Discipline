@@ -129,14 +129,14 @@ test('two devices sync additions, edits and deletions both ways, and keep their 
 	await pc.page.keyboard.press('Escape');
 
 	// an edit on the phone reaches the PC
-	await habit(phone.page, 'Added on the phone').dblclick();
+	await habit(phone.page, 'Added on the phone').click();
 	await phone.page.getByRole('dialog').getByLabel('Name').fill('Renamed on the phone');
 	await phone.page.keyboard.press('Enter');
 	await expect(habit(pc.page, 'Renamed on the phone')).toBeVisible();
 
 	// a deletion on the PC reaches the phone
 	await habit(pc.page, 'Run').click();
-	await pc.page.keyboard.press('Delete');
+	await pc.page.getByRole('dialog', { name: 'Edit habit' }).getByRole('button', { name: 'Delete' }).click();
 	await expect(habits(pc.page)).toHaveCount(3);
 	await expect(habits(phone.page)).toHaveCount(3);
 	await expect(habit(phone.page, 'Run')).toHaveCount(0);
@@ -147,7 +147,7 @@ test('two devices sync additions, edits and deletions both ways, and keep their 
 	for (const page of [phone.page, pc.page]) await page.getByRole('button', { name: 'Habits', exact: true }).click();
 	await expect(habits(phone.page)).toHaveCount(3);
 	await habit(phone.page, 'Read').click();
-	await phone.page.keyboard.press('Delete');
+	await phone.page.getByRole('dialog', { name: 'Edit habit' }).getByRole('button', { name: 'Delete' }).click();
 	await expect(habits(phone.page)).toHaveCount(2);
 	await addHabit(pc.page, 'Added on the PC while apart');
 	await connect(pc, phone);

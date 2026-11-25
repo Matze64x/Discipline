@@ -12,8 +12,16 @@
 		title,
 		onclose,
 		wide = false,
+		closeButton = false,
 		children,
-	}: { title: string; onclose: () => void; wide?: boolean; children: Snippet } = $props();
+	}: {
+		title: string;
+		onclose: () => void;
+		wide?: boolean;
+		/** An × next to the title, which stays on top while the dialog scrolls (for long dialogs) */
+		closeButton?: boolean;
+		children: Snippet;
+	} = $props();
 
 	let dialog: HTMLDialogElement;
 	const id = `dialog-${Math.random().toString(36).slice(2)}`;
@@ -62,7 +70,14 @@
 		target.form?.requestSubmit();
 	}}
 >
-	<h2 {id}>{title}</h2>
+	{#if closeButton}
+		<div class="title-bar">
+			<h2 {id}>{title}</h2>
+			<button type="button" class="close" aria-label="Close" title="Close (Esc)" onclick={onclose}>×</button>
+		</div>
+	{:else}
+		<h2 {id}>{title}</h2>
+	{/if}
 	{@render children()}
 </dialog>
 
@@ -91,6 +106,29 @@
 		font-size: 1.2rem;
 		overflow-wrap: anywhere;
 	}
+	.title-bar {
+		position: sticky;
+		top: -1.25rem;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin: -1.25rem -1.25rem 1rem;
+		padding: 1.25rem 1.25rem 0.5rem;
+		background: var(--surface);
+	}
+	.title-bar h2 {
+		margin: 0;
+	}
+	.close {
+		flex: none;
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+		padding: 0;
+		font-size: 1.5rem;
+		line-height: 1;
+	}
 	/* phones: full screen, like a native sheet */
 	@media (max-width: 40rem) {
 		dialog,
@@ -104,6 +142,12 @@
 			border-radius: 0;
 			padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
 				max(1rem, env(safe-area-inset-left));
+		}
+		.title-bar {
+			top: calc(-1 * max(1rem, env(safe-area-inset-top)));
+			margin: calc(-1 * max(1rem, env(safe-area-inset-top))) calc(-1 * max(1rem, env(safe-area-inset-right))) 1rem
+				calc(-1 * max(1rem, env(safe-area-inset-left)));
+			padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.5rem max(1rem, env(safe-area-inset-left));
 		}
 	}
 </style>

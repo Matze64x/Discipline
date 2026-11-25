@@ -25,13 +25,18 @@ export function addToDay(workspace: Workspace, habit: Habit, day: CivilDate, amo
 	return attempt(showError, () => workspace.edit(label, (d, now) => addToEntry(d, habit.id, day, amount, now)));
 }
 
-/** Whether "complete" can add something: an amount habit, due that day, its goal not met yet */
-export function canComplete(habit: Habit, progress: Progress): boolean {
-	return habit.kind === 'amount' && progress.due && remainingOf(progress) > 0;
+/**
+ * Whether "complete" can do something on a day: a yes/no habit not checked off yet; an amount
+ * habit whose goal isn't met yet. Both only when due.
+ */
+export function canComplete(habit: Habit, progress: Progress, value: number | null): boolean {
+	if (!progress.due) return false;
+	return habit.kind === 'check' ? value === null : remainingOf(progress) > 0;
 }
 
-/** Adds what's missing to meet the goal of the day's period (nothing if it's met or not due) */
-export function completeDay(workspace: Workspace, habit: Habit, day: CivilDate, progress: Progress) {
-	if (!canComplete(habit, progress)) return Promise.resolve(false);
+/** Checks off a yes/no habit, or adds what's missing to meet an amount habit's goal (if `canComplete`) */
+export function completeDay(workspace: Workspace, habit: Habit, day: CivilDate, progress: Progress, value: number | null) {
+	if (!canComplete(habit, progress, value)) return Promise.resolve(false);
+	if (habit.kind === 'check') return toggleDay(workspace, habit, day, false);
 	return addToDay(workspace, habit, day, remainingOf(progress), `Complete “${habit.name}”`);
 }
