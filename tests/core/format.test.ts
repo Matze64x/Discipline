@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_DATA, FORMAT_VERSION, parseDiscipline, serializeDiscipline, type DisciplineData } from '../../src/core';
+import { addDays, EMPTY_DATA, FORMAT_VERSION, parseDiscipline, serializeDiscipline, setEntry, toDraft, updateHabit, type CivilDate, type DisciplineData, type UtcSeconds } from '../../src/core';
 import { randomData } from './random-data';
 
 const GOAL = { from: '2026-11-01', period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 30 };
@@ -106,6 +106,20 @@ describe('format', () => {
 			const back = parsed(text);
 			expect(back, `seed ${seed}`).toEqual(data);
 			expect(serializeDiscipline(back)).toBe(text);
+		}
+	});
+
+	it('writes after edits what it writes from scratch (records’ lines are cached)', () => {
+		for (let seed = 1; seed <= 50; seed++) {
+			let data = randomData(seed);
+			serializeDiscipline(data);
+			for (let step = 0; step < 5 && data.habits.length > 0; step++) {
+				const habit = data.habits[step % data.habits.length]!;
+				data = setEntry(data, habit.id, addDays('2026-01-01' as CivilDate, step), habit.kind === 'check' ? 1 : step + 1, 1_795_000_000 as UtcSeconds);
+				if (step === 2) data = updateHabit(data, habit.id, { ...toDraft(habit), name: `${habit.name} x` }, toDraft(habit).start, 1_795_000_000 as UtcSeconds);
+				// a structural copy has no cached lines
+				expect(serializeDiscipline(data), `seed ${seed}`).toBe(serializeDiscipline(structuredClone(data)));
+			}
 		}
 	});
 

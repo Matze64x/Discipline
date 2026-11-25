@@ -84,6 +84,16 @@ function fromStored(stored: StoredSnapshot): Snapshot {
 	return { working: parseStored(stored.working), fileName: stored.fileName };
 }
 
+/**
+ * Formats loaded data once while the browser is idle: saving after the first edit then only
+ * formats what changed (with years of data, the whole text takes a noticeable moment on a phone).
+ */
+function prepareSaving(...data: (DisciplineData | undefined)[]): void {
+	const run = () => data.forEach((d) => d && serialize(d));
+	// (not before the app has shown the data: an idle moment comes even before that)
+	setTimeout(() => (typeof requestIdleCallback === 'function' ? requestIdleCallback(run, { timeout: 2000 }) : run()), 1000);
+}
+
 interface UndoEntry {
 	readonly before: DisciplineData;
 	readonly after: DisciplineData;
@@ -141,6 +151,7 @@ export class Workspace implements SyncStore {
 				// a damaged undo snapshot must not prevent loading the data itself
 				this.#beforeImport = null;
 			}
+			prepareSaving(this.#current.working, this.#beforeImport?.working);
 		}
 		this.ready = true;
 	}

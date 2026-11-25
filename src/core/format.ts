@@ -296,6 +296,22 @@ function preferencesToJson(p: Preferences): string {
 	return line({ dayStart: p.dayStart, weekStart: p.weekStart, edited: p.edited === null ? null : formatTimestamp(p.edited) });
 }
 
+// A record's line, computed once per record object (records are never changed): after an edit,
+// writing the data again only formats what's new (with years of entries, the rest is most of the time)
+const habitLines = new WeakMap<Habit, string>();
+const entryLines = new WeakMap<Entry, string>();
+function cached<T extends object>(cache: WeakMap<T, string>, record: T, write: (record: T) => string): string {
+	let text = cache.get(record);
+	if (text === undefined) cache.set(record, (text = write(record)));
+	return text;
+}
+
+/** Sorted by `compare`: as given if it already is (the data's lists always are), else a sorted copy */
+function sortedBy<T>(items: readonly T[], compare: (a: T, b: T) => number): readonly T[] {
+	for (let i = 1; i < items.length; i++) if (compare(items[i - 1]!, items[i]!) > 0) return [...items].sort(compare);
+	return items;
+}
+
 function habitToJson(h: Habit): string {
 	return line({ id: h.id, name: h.name, kind: h.kind, unit: h.unit, goals: h.goals.map(goalToJson), color: h.color, position: h.position, archived: h.archived, edited: formatTimestamp(h.edited) });
 }
@@ -317,7 +333,7 @@ function list(lines: readonly string[]): string {
 
 /** Serializes the data (sorted, so equal data gives equal text), with a final newline. */
 export function serializeDiscipline(data: DisciplineData): string {
-	const habits = [...data.habits].sort(compareHabits).map(habitToJson);
-	const entries = [...data.entries].sort(compareEntries).map(entryToJson);
+	const habits = sortedBy(data.habits, compareHabits).map((h) => cached(habitLines, h, habitToJson));
+	const entries = sortedBy(data.entries, compareEntries).map((e) => cached(entryLines, e, entryToJson));
 	return `{\n\t"version": ${FORMAT_VERSION},\n\t"preferences": ${preferencesToJson(data.preferences)},\n\t"habits": ${list(habits)},\n\t"entries": ${list(entries)}\n}\n`;
 }
