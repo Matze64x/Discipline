@@ -1,6 +1,10 @@
 <!--
-	A day's habits (today unless another day is chosen): check them off, or enter amounts. ←/→ go
-	to the day before or after, t back to today. In the focused list, Space or Enter checks the
+	A day's habits (today unless another day is picked): check them off, or enter amounts. Above
+	them the week (or, expanded, the month) of that day, to pick another; ‹ › (Shift+←/→) move by
+	a week or month, ←/→ by a day, Today (t) back to today, m expands or collapses the month.
+	Each habit shows how its period goes: a daily goal its week as dots (done, missed, not due,
+	still open), a weekly or monthly one a bar whose border shows how far the period has run and
+	whose fill how far the habit is. In the focused list, Space or Enter checks the
 	selected habit off (or opens its amount), a digit starts entering an amount, Delete clears it,
 	e edits the habit. An amount habit's buttons (and keys): +1 (+), add an amount (a), complete:
 	add what's missing to meet the goal (c). A tap on a row (or a click on its mark) does the same
@@ -8,10 +12,29 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { addDays, entryOn, isActiveOn, progressOn, type CivilDate, type Habit, type Id, type Progress } from '../core';
+	import {
+		addDays,
+		addMonths,
+		dayMarks,
+		dayShare,
+		entryOn,
+		isActiveOn,
+		progressOn,
+		startOfMonth,
+		startOfWeek,
+		timeShare,
+		WEEKDAYS,
+		type CivilDate,
+		type Habit,
+		type Id,
+		type Progress,
+		type Weekday,
+	} from '../core';
 	import AmountDialog from './AmountDialog.svelte';
 	import { clock } from './clock.svelte';
-	import { describeProgress, formatDate, formatValue, formatWeekday } from './display';
+	import DayStrip from './DayStrip.svelte';
+	import { describeDayAmount, formatDate, formatMonth, formatShortDate, formatValue, withUnit } from './display';
+	import { settings } from './settings.svelte';
 	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
 	import { shortcuts } from './shortcuts.svelte';
 	import SelectableList from './ui/SelectableList.svelte';
@@ -28,6 +51,27 @@
 	let chosen = $state<CivilDate | null>(null);
 	const date = $derived(chosen !== null && chosen < clock.today ? chosen : clock.today);
 	const isToday = $derived(date === clock.today);
+	const weekStart = $derived(workspace.data.preferences.weekStart);
+	/** The days of `date`'s week */
+	const week = $derived(Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(date, weekStart), i)));
+	const weekdays = $derived<readonly Weekday[]>(weekStart === 7 ? [7, 1, 2, 3, 4, 5, 6] : WEEKDAYS);
+	/** The days above the habits: the week, or the month (whole weeks; other months' days blank) */
+	const shownDays = $derived.by((): (CivilDate | null)[] => {
+		if (!settings.showMonth) return week;
+		const first = startOfMonth(date);
+		const next = addMonths(first, 1);
+		const days: (CivilDate | null)[] = [];
+		for (let d = startOfWeek(first, weekStart); d < next || days.length % 7 !== 0; d = addDays(d, 1)) days.push(d >= first && d < next ? d : null);
+		return days;
+	});
+	/** The week's dates for the heading, with the year if it isn't this year's */
+	const weekRange = $derived.by(() => {
+		const thisYear = (d: CivilDate) => d.slice(0, 4) === clock.today.slice(0, 4);
+		const show = (d: CivilDate) => (thisYear(d) ? formatShortDate(d) : formatDate(d));
+		return `${show(week[0]!)} – ${show(week[6]!)}`;
+	});
+	/** The day of the month picked last: paging by months comes back to it (Mar 31 → Feb 28 → Mar 31) */
+	let monthDay = 0;
 
 	interface Row {
 		readonly habit: Habit;
@@ -61,15 +105,32 @@
 		if (active) list.focus();
 	});
 
-	function go(by: number) {
-		const next = addDays(date, by);
-		chosen = next < clock.today ? next : null;
+	/** Shows `day` (today at the latest) */
+	function show(day: CivilDate, keepMonthDay = false) {
+		chosen = day < clock.today ? day : null;
+		if (!keepMonthDay) monthDay = Number(date.slice(8));
 		// (a clicked button would keep the focus, and Space would act on it instead of the list)
+		list.focus();
+	}
+
+	const go = (by: number) => show(addDays(date, by));
+	/** The week or month before or after */
+	function page(by: number) {
+		if (!settings.showMonth) return show(addDays(date, 7 * by));
+		const wanted = monthDay || Number(date.slice(8));
+		// (addMonths stops at the month's last day)
+		const target = addMonths(date.slice(0, 8) + '01' as CivilDate, by);
+		show(addDays(target, Math.min(wanted, Number(addDays(addMonths(target, 1), -1).slice(8))) - 1), true);
+	}
+
+	function toggleMonth() {
+		settings.showMonth = !settings.showMonth;
 		list.focus();
 	}
 
 	function goToday() {
 		chosen = null;
+		monthDay = 0;
 		list.focus();
 	}
 
@@ -115,6 +176,9 @@
 		shortcuts.add([
 			{ keys: ['ArrowLeft'], description: 'The day before', group: 'Day', repeat: true, when: () => active, run: () => go(-1) },
 			{ keys: ['ArrowRight'], description: 'The day after', group: 'Day', repeat: true, when: () => active && !isToday, visible: () => active, run: () => go(1) },
+			{ keys: ['Shift+ArrowLeft'], description: 'The week (or month) before', group: 'Day', repeat: true, when: () => active, run: () => page(-1) },
+			{ keys: ['Shift+ArrowRight'], description: 'The week (or month) after', group: 'Day', repeat: true, when: () => active && !isToday, visible: () => active, run: () => page(1) },
+			{ keys: ['m'], description: 'Show the month (or the week)', group: 'Day', when: () => active, run: toggleMonth },
 			{ keys: ['t'], description: 'Today', group: 'Day', when: () => active && !isToday, visible: () => active, run: goToday },
 			{ keys: ['n'], description: 'New habit', group: 'Day', when: () => active, run: onnewhabit },
 			// these act on the selection, so only while the list (not a button elsewhere) has the focus
@@ -136,14 +200,18 @@
 	);
 </script>
 
+<!-- (on wide screens the days stay together) -->
+<div class="calendar">
 <div class="toolbar">
-	<button class="nav" aria-label="The day before" title="←" onclick={() => go(-1)}>‹</button>
-	<h2>
-		{isToday ? 'Today' : date === addDays(clock.today, -1) ? 'Yesterday' : formatWeekday(date)}
-		<span class="date">{formatDate(date)}</span>
-	</h2>
-	<button class="nav" aria-label="The day after" title="→" disabled={isToday} onclick={() => go(1)}>›</button>
-	{#if !isToday}<button class="today" title="t" onclick={goToday}>Today</button>{/if}
+	<button class="nav" aria-label={settings.showMonth ? 'The month before' : 'The week before'} title="Shift+←" onclick={() => page(-1)}>‹</button>
+	<h2>{settings.showMonth ? formatMonth(date, { month: 'short', year: 'numeric' }) : weekRange}</h2>
+	<button class="nav" aria-label={settings.showMonth ? 'The month after' : 'The week after'} title="Shift+→" disabled={isToday} onclick={() => page(1)}>›</button>
+	<button class="today" title="t" disabled={isToday} onclick={goToday}>Today</button>
+	<button class="month" aria-label="Month" aria-pressed={settings.showMonth} title="Month (m)" onclick={toggleMonth}>
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+	</button>
+</div>
+<DayStrip days={shownDays} {weekdays} selected={date} today={clock.today} share={(d) => dayShare(workspace.data, d)} onselect={show} />
 </div>
 
 <SelectableList
@@ -160,7 +228,7 @@
 >
 	{#snippet row(r)}
 		{@const { habit, progress, value } = r}
-		{@const text = describeProgress(progress, habit, clock.today)}
+		{@const daily = progress.goal.period === 'day'}
 		{@const filled = habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met}
 		<div class="row" class:off={!progress.due && value === null}>
 			<!--
@@ -182,7 +250,30 @@
 			</button>
 			<div class="text">
 				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
-				{#if text}<span class="progress" class:met={progress.met}>{text}</span>{/if}
+				{#if daily}
+					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
+					<span class="dots">
+						<span class="visually-hidden">{`Week: ${marks.filter((m) => m === 'done').length} done, ${marks.filter((m) => m === 'missed').length} missed.`}</span>
+						{#each marks as mark, i (i)}
+							<span class={`dot ${mark}`} class:current={week[i] === date} class:today={week[i] === clock.today} style:--color={habit.color} aria-hidden="true"></span>
+						{/each}
+						{#if habit.kind === 'amount'}<span class="progress" class:met={progress.met}>{describeDayAmount(progress, habit)}</span>{/if}
+					</span>
+				{:else}
+					{@const time = timeShare(progress, clock.today)}
+					<span class="period">
+						<span class="label">{progress.goal.period === 'week' ? 'Week' : 'Month'}</span>
+						<span
+							class="bar"
+							role="img"
+							aria-label={`${Math.round(Math.min(1, progress.done / progress.target) * 100)}% done, ${Math.round(time * 100)}% of the ${progress.goal.period} gone`}
+							style:--color={habit.color}
+							style:--time={`${time * 100}%`}
+							style:--done={Math.min(1, progress.done / progress.target)}
+						><span class="fill"></span></span>
+						<span class="progress" class:met={progress.met}>{habit.kind === 'check' ? `${progress.done} / ${progress.target}` : `${formatValue(progress.done)} / ${withUnit(progress.target, habit.unit)}`}</span>
+					</span>
+				{/if}
 			</div>
 			{#if habit.kind === 'amount'}
 				<!-- (never focused, like the mark: the keys act on the list's selection) -->
@@ -235,31 +326,137 @@
 {/if}
 
 <style>
+	.calendar {
+		max-width: 30rem;
+	}
 	.toolbar {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 1rem 0.75rem 0.5rem;
+		gap: 0.4rem;
+		padding: 0.75rem 0.5rem 0.4rem;
 	}
 	h2 {
 		margin: 0;
-		font-size: 1.3rem;
-		min-width: 9rem;
+		font-size: 1rem;
+		min-width: 0;
+		flex: 0 1 auto;
+		padding: 0 0.25rem;
 		text-align: center;
+		white-space: nowrap;
 	}
-	.date {
-		display: block;
-		font-size: 0.85rem;
-		font-weight: normal;
-		color: var(--muted);
+	.month {
+		display: grid;
+		place-items: center;
+		min-width: 2.75rem;
+		padding: 0;
+	}
+	.month svg {
+		width: 1.25rem;
+		height: 1.25rem;
+		transition: transform 0.15s;
+	}
+	.month[aria-pressed='true'] svg {
+		transform: rotate(180deg);
 	}
 	.nav {
-		min-width: 2.5rem;
+		min-width: 2.75rem;
 		font-size: 1.3rem;
 		line-height: 1;
 	}
 	.today {
 		margin-left: auto;
+	}
+	.toolbar button {
+		min-height: 2.75rem;
+	}
+	/* a daily goal's week: done (filled), missed (crossed out), not due (dim), still open (a ring) */
+	.dots {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		margin-top: 0.2rem;
+	}
+	.dot {
+		position: relative;
+		width: 0.7rem;
+		height: 0.7rem;
+		border-radius: 50%;
+		border: 2px solid var(--color);
+		box-sizing: border-box;
+	}
+	.dot.done {
+		background: var(--color);
+	}
+	.dot.off {
+		border: none;
+		background: var(--color);
+		opacity: 0.35;
+		transform: scale(0.8);
+	}
+	/* (today among the days still to come) */
+	.dot.open.today {
+		border-width: 3px;
+	}
+	.dot.missed {
+		border-color: var(--muted);
+	}
+	.dot.missed::after {
+		content: '';
+		position: absolute;
+		left: -0.2rem;
+		right: -0.2rem;
+		top: calc(50% - 1px);
+		height: 2px;
+		background: var(--muted);
+		transform: rotate(-45deg);
+	}
+	.dot.current {
+		outline: 2px solid var(--text);
+		outline-offset: 1px;
+	}
+	.dots .progress {
+		margin-left: 0.35rem;
+	}
+	/* a weekly or monthly goal: the border shows how far the period has run, the fill how far the habit is */
+	.period {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.2rem;
+	}
+	.label {
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--muted);
+	}
+	.bar {
+		position: relative;
+		flex: 1 1 4rem;
+		max-width: 9rem;
+		height: 0.75rem;
+	}
+	/* the border: all of it light, and the part for the time gone dark on top of it (cut to --time) */
+	.bar::before,
+	.bar::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border: 2px solid var(--border);
+		border-radius: 0.375rem;
+	}
+	.bar::after {
+		border-color: var(--text);
+		clip-path: inset(0 calc(100% - var(--time)) 0 0);
+	}
+	.fill {
+		position: absolute;
+		left: 2px;
+		top: 2px;
+		bottom: 2px;
+		width: calc((100% - 4px) * var(--done));
+		border-radius: 0.25rem;
+		background: var(--color);
 	}
 	.row {
 		display: flex;

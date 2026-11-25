@@ -87,20 +87,38 @@ export function progressOn(data: DisciplineData, habit: Habit, date: CivilDate, 
 	return { goal, from, to, due, done, target, met: done >= target };
 }
 
+/** A day of a daily goal: met, missed (due, past, not met), not due (or the habit wasn't active), or still open */
+export type DayMark = 'done' | 'missed' | 'off' | 'open';
+
 /**
- * How the days `from`…`to` went for a habit, on the days its goal was a daily one: how many were
- * due (active, a weekday of the goal) and how many of those met it. Days after `today` count as
- * due only if `future` (to show "2 of 5" for a week still running).
+ * How a habit's days went by its daily goal (`today` and later can't be missed yet). A day under
+ * a weekly or monthly goal (before or after a goal change) has no daily goal: off.
  */
-export function daysMet(data: DisciplineData, habit: Habit, from: CivilDate, to: CivilDate, today: CivilDate, future = true): { met: number; due: number } {
-	let [met, due] = [0, 0];
-	for (let d = from; d <= to; d = addDays(d, 1)) {
-		if (!future && d > today) break;
-		// (the week start doesn't matter for daily goals)
+export function dayMarks(data: DisciplineData, habit: Habit, days: readonly CivilDate[], today: CivilDate): DayMark[] {
+	return days.map((d) => {
+		// (the week start doesn't matter for a single day's goal)
 		const progress = progressOn(data, habit, d, 1);
+		if (!progress || !progress.due || progress.goal.period !== 'day') return 'off';
+		if (progress.met) return 'done';
+		return d < today ? 'missed' : 'open';
+	});
+}
+
+/** How far the period `from`…`to` has run on `today`, 0…1 (today counts as begun) */
+export function timeShare(period: Pick<Progress, 'from' | 'to'>, today: CivilDate): number {
+	if (today < period.from) return 0;
+	if (today > period.to) return 1;
+	return (daysBetween(period.from, today) + 1) / (daysBetween(period.from, period.to) + 1);
+}
+
+/** How many of the daily goals due on `date` were met (habits with weekly or monthly goals aside) */
+export function dayShare(data: DisciplineData, date: CivilDate): { met: number; due: number } {
+	let [met, due] = [0, 0];
+	for (const habit of data.habits) {
+		const progress = progressOn(data, habit, date, 1);
 		if (!progress || progress.goal.period !== 'day' || !progress.due) continue;
 		due++;
-		if (progress.met && d <= today) met++;
+		if (progress.met) met++;
 	}
 	return { met, due };
 }

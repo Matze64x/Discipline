@@ -10,19 +10,22 @@ const KEY = 'discipline-settings-v1';
 
 interface Values {
 	dateStyle: DateStyle;
+	/** Today: the whole month shown above the habits (else the week) */
+	showMonth: boolean;
 	/** Installed web app: new versions automatically, or only when the user taps "Update" */
 	updates: 'auto' | 'ask';
 	/** Desktop app: the file the data is backed up to, or null for none */
 	backupPath: string | null;
 }
 
-const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', updates: 'auto', backupPath: null };
+const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', showMonth: false, updates: 'auto', backupPath: null };
 
 function load(): Values {
 	try {
 		const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Values>;
 		return {
 			dateStyle: DATE_STYLES.includes(raw.dateStyle as DateStyle) ? raw.dateStyle! : DEFAULTS.dateStyle,
+			showMonth: raw.showMonth === true,
 			updates: raw.updates === 'ask' ? 'ask' : 'auto',
 			backupPath: typeof raw.backupPath === 'string' && raw.backupPath !== '' ? raw.backupPath : null,
 		};
@@ -43,6 +46,13 @@ class Settings {
 	}
 	set dateStyle(dateStyle: DateStyle) {
 		this.#set({ dateStyle });
+	}
+
+	get showMonth(): boolean {
+		return this.#values.showMonth;
+	}
+	set showMonth(showMonth: boolean) {
+		this.#set({ showMonth });
 	}
 
 	get updates(): 'auto' | 'ask' {

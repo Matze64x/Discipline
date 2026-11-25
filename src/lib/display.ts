@@ -7,6 +7,19 @@ export function formatDate(date: CivilDate): string {
 	return formatDateAs(date, settings.dateStyle);
 }
 
+/** A date without the year, in the user's date format: "25.11.", "25/11", "11/25", "11-25" */
+export function formatShortDate(date: CivilDate): string {
+	const full = formatDate(date);
+	switch (settings.dateStyle) {
+		case 'DD.MM.YYYY':
+			return full.slice(0, 6);
+		case 'YYYY-MM-DD':
+			return full.slice(5);
+		default:
+			return full.slice(0, 5);
+	}
+}
+
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
 	return `${count} ${count === 1 ? singular : pluralForm}`;
 }
@@ -23,11 +36,6 @@ export function formatMonth(date: CivilDate, options: Intl.DateTimeFormatOptions
 	return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short', ...options });
 }
 
-/** A weekday's short name: "Mon" */
-export function formatWeekday(date: CivilDate): string {
-	const { year, month, day } = dateParts(date);
-	return new Date(year, month - 1, day).toLocaleDateString('en-US', { weekday: 'short' });
-}
 
 // no thousands separators: "1,000" would read as one with a decimal comma when typed back
 // latin digits: other numbering systems (e.g. Arabic) couldn't be typed back
@@ -66,15 +74,7 @@ export function describeGoal(goal: Goal, habit: Pick<Habit, 'kind' | 'unit'>): s
 	return `${withUnit(goal.target, habit.unit)} ${per}`;
 }
 
-/**
- * Progress in words for a list row: "20 / 30 min", "2 of 3 this week", "Not due" ('' for a daily
- * check habit: its mark says it). `today`: the day the progress is about is today (else "that week").
- */
-export function describeProgress(progress: Progress, habit: Pick<Habit, 'kind' | 'unit'>, today: CivilDate): string {
-	const current = progress.from <= today && today <= progress.to;
-	if (!progress.due) return progress.from === today ? 'Not today' : 'Not due';
-	const { goal, done, target } = progress;
-	if (goal.period === 'day') return habit.kind === 'check' ? '' : `${formatValue(done)} / ${withUnit(target, habit.unit)}`;
-	const period = `${current ? 'this' : 'that'} ${goal.period}`;
-	return habit.kind === 'check' ? `${done} of ${target} ${period}` : `${formatValue(done)} of ${withUnit(target, habit.unit)} ${period}`;
+/** A daily amount goal's day in words: "20 / 30 min" ("Not due" on another weekday) */
+export function describeDayAmount(progress: Progress, habit: Pick<Habit, 'unit'>): string {
+	return progress.due ? `${formatValue(progress.done)} / ${withUnit(progress.target, habit.unit)}` : 'Not due';
 }

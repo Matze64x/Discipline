@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	addHabit,
 	daysLeft,
-	daysMet,
+	dayMarks,
+	dayShare,
+	timeShare,
 	EMPTY_DATA,
 	entriesBetween,
 	entriesByHabit,
@@ -89,27 +91,46 @@ describe('progress', () => {
 	});
 });
 
-describe('days met in a week', () => {
-	it('counts due days (weekdays of the goal, while active) and the ones that met it', () => {
+describe('the week at a glance', () => {
+	it('marks a daily goal’s days: done, missed, not due, still open', () => {
 		// READ: 30 min on Mon–Fri, from Mon 2026-11-02
 		let { data, id } = make(READ);
 		data = setEntry(data, id, day('2026-11-02'), 30, T);
 		data = setEntry(data, id, day('2026-11-03'), 10, T);
-		data = setEntry(data, id, day('2026-11-07'), 60, T); // a Saturday: not due, doesn't count
 		const habit = data.habits[0]!;
-		expect(daysMet(data, habit, day('2026-11-02'), day('2026-11-08'), day('2026-11-08'))).toEqual({ met: 1, due: 5 });
-		// a week still running: the days ahead count as due (2 of 5), or not at all
-		expect(daysMet(data, habit, day('2026-11-02'), day('2026-11-08'), day('2026-11-03'))).toEqual({ met: 1, due: 5 });
-		expect(daysMet(data, habit, day('2026-11-02'), day('2026-11-08'), day('2026-11-03'), false)).toEqual({ met: 1, due: 2 });
-		// before the start and after archiving: not due
-		expect(daysMet(data, habit, day('2026-10-26'), day('2026-11-01'), day('2026-11-08'))).toEqual({ met: 0, due: 0 });
-		const archived = setArchived(data, id, day('2026-11-04'), T);
-		expect(daysMet(archived, archived.habits[0]!, day('2026-11-02'), day('2026-11-08'), day('2026-11-08'))).toEqual({ met: 1, due: 2 });
+		const week = ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07'].map(day);
+		// (Sun before the start; Mon met; Tue not enough; Wed is today; Sat not due)
+		expect(dayMarks(data, habit, week, day('2026-11-04'))).toEqual(['off', 'done', 'missed', 'open', 'open', 'open', 'off']);
+		const archived = setArchived(data, id, day('2026-11-03'), T);
+		expect(dayMarks(archived, archived.habits[0]!, week, day('2026-11-04'))).toEqual(['off', 'done', 'off', 'off', 'off', 'off', 'off']);
 	});
 
-	it('only days with a daily goal count', () => {
-		const { data } = make(RUN);
-		expect(daysMet(data, data.habits[0]!, day('2026-11-02'), day('2026-11-08'), day('2026-11-08'))).toEqual({ met: 0, due: 0 });
+	it('a day under a weekly goal (before a change to a daily one) is off, not missed', () => {
+		let { data, id } = make({ ...RUN, kind: 'check' });
+		// weekly until Wed, daily (every day) from Wed 2026-11-04 on
+		data = updateHabit(data, id, { ...RUN, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 1 } }, day('2026-11-04'), T);
+		data = toggleCheck(data, id, day('2026-11-05'), T);
+		const week = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].map(day);
+		expect(dayMarks(data, data.habits[0]!, week, day('2026-11-07'))).toEqual(['off', 'off', 'missed', 'done', 'missed', 'open', 'open']);
+	});
+
+	it('tells how far a period has run', () => {
+		const week = { from: day('2026-11-02'), to: day('2026-11-08') };
+		expect(timeShare(week, day('2026-11-01'))).toBe(0);
+		expect(timeShare(week, day('2026-11-02'))).toBeCloseTo(1 / 7);
+		expect(timeShare(week, day('2026-11-08'))).toBe(1);
+		expect(timeShare(week, day('2026-12-01'))).toBe(1);
+	});
+
+	it('counts the daily goals met on a day', () => {
+		let { data, id } = make(READ);
+		const run = addHabit(data, RUN, T);
+		data = setEntry(run.data, id, day('2026-11-02'), 30, T);
+		data = toggleCheck(data, run.id, day('2026-11-02'), T);
+		// (RUN's goal is weekly: not counted)
+		expect(dayShare(data, day('2026-11-02'))).toEqual({ met: 1, due: 1 });
+		expect(dayShare(data, day('2026-11-03'))).toEqual({ met: 0, due: 1 });
+		expect(dayShare(data, day('2026-11-07'))).toEqual({ met: 0, due: 0 });
 	});
 });
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import DayView from './lib/DayView.svelte';
 	import HabitsView from './lib/HabitsView.svelte';
-	import WeekView from './lib/WeekView.svelte';
 	import { touchFirst } from './lib/pointer';
 	import { errorMessage } from './lib/errors';
 	import ImportDialog from './lib/ImportDialog.svelte';
@@ -21,7 +20,6 @@
 
 	const SECTIONS = [
 		{ id: 'today', label: 'Today', keys: 'g t' },
-		{ id: 'week', label: 'Week', keys: 'g w' },
 		{ id: 'habits', label: 'Habits', keys: 'g h' },
 	] as const;
 	let section = $state<(typeof SECTIONS)[number]['id']>('today');
@@ -253,20 +251,6 @@
 			<DayView
 				{workspace}
 				active={section === 'today'}
-				onnewhabit={() => {
-					section = 'habits';
-					habitsView?.openNew();
-				}}
-				onedithabit={(habit) => {
-					section = 'habits';
-					habitsView?.openEdit(habit);
-				}}
-			/>
-		</div>
-		<div hidden={section !== 'week'}>
-			<WeekView
-				{workspace}
-				active={section === 'week'}
 				onnewhabit={() => {
 					section = 'habits';
 					habitsView?.openNew();
