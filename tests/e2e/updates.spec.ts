@@ -6,7 +6,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openSettings, waitForApp } from './app';
 
-test.describe.configure({ mode: 'serial' });
+// (serial: they switch the server; slow: they wait for downloads and installs on purpose)
+test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
 let server = '';
 let PUBLISHED = '';
