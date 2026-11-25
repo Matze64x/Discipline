@@ -146,6 +146,19 @@ test('swiping the calendar pages by week or month, never past today', async ({ p
 	await expect(heading).toHaveText('23.11. – 29.11.');
 	await swipeCalendar(page, -120);
 	await expect(heading).toHaveText('23.11. – 29.11.');
+	// while the finger moves, only the days follow it, not the buttons above them
+	const moved = await page.locator('.calendar').evaluate((node) => {
+		const days = node.querySelector('[role=group]')!;
+		const box = days.getBoundingClientRect();
+		const event = (type: string, clientX: number) => new PointerEvent(type, { pointerType: 'touch', pointerId: 8, isPrimary: true, clientX, clientY: box.top + 10, bubbles: true });
+		days.dispatchEvent(event('pointerdown', box.left + 100));
+		days.dispatchEvent(event('pointermove', box.left + 160));
+		const result = { days: getComputedStyle(days).transform, calendar: getComputedStyle(node).transform };
+		days.dispatchEvent(event('pointercancel', box.left + 160));
+		return result;
+	});
+	expect(moved.days).not.toBe('none');
+	expect(moved.calendar).toBe('none');
 	// too short: nothing
 	await swipeCalendar(page, 30);
 	await expect(heading).toHaveText('23.11. – 29.11.');

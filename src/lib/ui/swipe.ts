@@ -17,6 +17,8 @@ export interface Swipe {
 	go: (by: -1 | 1) => void;
 	/** Whether a direction can page (default: both) */
 	can?: (by: -1 | 1) => boolean;
+	/** What follows the finger, a selector inside the element (default: the element itself) */
+	moves?: string;
 }
 
 export function swipe(node: HTMLElement, options: Swipe) {
@@ -28,13 +30,16 @@ export function swipe(node: HTMLElement, options: Swipe) {
 	const can = (by: -1 | 1) => current.can?.(by) ?? true;
 	node.style.touchAction = 'pan-y';
 
+	const moving = () => (current.moves ? node.querySelector<HTMLElement>(current.moves) : null) ?? node;
 	function move(x: number) {
-		node.style.transition = '';
-		node.style.transform = x === 0 || still() ? '' : `translateX(${x}px)`;
+		const target = moving();
+		target.style.transition = '';
+		target.style.transform = x === 0 || still() ? '' : `translateX(${x}px)`;
 	}
 	function settle() {
-		node.style.transition = 'transform 0.15s ease-out';
-		node.style.transform = '';
+		const target = moving();
+		target.style.transition = 'transform 0.15s ease-out';
+		target.style.transform = '';
 	}
 	/** Whether a move is a horizontal swipe so far (mostly sideways) */
 	const sideways = (dx: number, dy: number) => Math.abs(dx) > 1.5 * Math.abs(dy);

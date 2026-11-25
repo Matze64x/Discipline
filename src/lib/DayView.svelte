@@ -244,8 +244,8 @@
 	);
 </script>
 
-<!-- (on wide screens the days stay together; a swipe pages like ‹ ›, never past today) -->
-<div class="calendar" use:swipe={{ go: page, can: (by) => by < 0 || !isToday }}>
+<!-- (on wide screens the days stay together; a swipe pages like ‹ ›, never past today, and only the days follow the finger) -->
+<div class="calendar" use:swipe={{ go: page, can: (by) => by < 0 || !isToday, moves: '[role=group]' }}>
 <div class="toolbar">
 	<button class="nav" aria-label={settings.showMonth ? 'The month before' : 'The week before'} title="Shift+←" onclick={() => page(-1)}>‹</button>
 	<h2>{settings.showMonth ? formatMonth(date, { month: 'short', year: 'numeric' }) : weekRange}</h2>
