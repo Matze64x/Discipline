@@ -166,7 +166,7 @@
 				<!-- the goal's amount, then its unit: "30 min", how often follows below -->
 				<div class="amount">
 					<input class="target" type="text" inputmode="decimal" autocomplete="off" aria-label={aim === 'build' ? 'Goal' : 'At most'} placeholder={aim === 'build' ? 'Goal' : 'At most'} bind:value={targetText} />
-					<input class="unit" type="text" autocomplete="off" aria-label="Unit" placeholder="Unit (min, km, …)" bind:value={unit} />
+					<input class="unit" type="text" autocomplete="off" aria-label="Unit" placeholder="Unit (optional)" bind:value={unit} />
 				</div>
 			{/if}
 		</div>

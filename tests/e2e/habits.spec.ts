@@ -144,6 +144,10 @@ test('amounts: +1, add an amount and complete, by keys and clicks', async ({ pag
 	await keys(page, 'c');
 	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).click();
 	await expect(dayRow(page, 'Read')).toContainText('31 / 30 min');
+	// over the goal: complete (key or button) never snaps it back
+	await keys(page, 'c');
+	await dayRow(page, 'Read').getByRole('button', { name: 'Complete' }).click({ force: true });
+	await expect(dayRow(page, 'Read')).toContainText('31 / 30 min');
 	await keys(page, 'Control+z', 'Control+z');
 	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30 min');
 	// the list kept the focus through the clicks
