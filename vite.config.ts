@@ -10,6 +10,8 @@ const base = process.env['DISCIPLINE_BASE'] ?? '/';
 
 /** The app's version: the day and commit it was built from, e.g. "2026-11-25 92e6f68" */
 function appVersion(): string {
+	// (given by scripts/test-e2e.sh, which builds in a container that may have no usable git)
+	if (process.env['DISCIPLINE_VERSION']) return process.env['DISCIPLINE_VERSION'];
 	try {
 		return execSync('git log -1 --format="%cd %h" --date=format:%Y-%m-%d', { encoding: 'utf8' }).trim();
 	} catch {

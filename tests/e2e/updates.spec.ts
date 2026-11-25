@@ -42,7 +42,8 @@ const updateNotice = (page: Page) => page.getByRole('status').filter({ hasText: 
 test('the settings show the version and check for updates', async ({ page }) => {
 	await openPublished(page);
 	const settings = await openSettings(page);
-	await expect(settings).toContainText(/Version (\d{4}-\d{2}-\d{2} [0-9a-f]+|unknown)/);
+	// (never "unknown": then version.json always matches, and no update is ever seen)
+	await expect(settings.getByText(/^Version /)).toHaveText(/^Version \d{4}-\d{2}-\d{2} [0-9a-f]+$/);
 	await settings.getByRole('button', { name: 'Check for updates' }).click();
 	await expect(settings).toContainText('Up to date.');
 });

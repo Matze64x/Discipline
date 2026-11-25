@@ -7,8 +7,11 @@
 set -eu
 cd "$(dirname "$0")/.."
 version=$(node -p "require('@playwright/test/package.json').version")
+# the app's version (vite.config.ts) is read here: the image may not be able to run git on the
+# checkout, and every build would then be "unknown" (updates never seen)
+app_version=$(git log -1 --format="%cd %h" --date=format:%Y-%m-%d)
 exec docker run --rm --init --ipc=host \
-	--user "$(id -u):$(id -g)" --env HOME=/tmp --env CI --env DISCIPLINE_IN_CONTAINER=1 \
+	--user "$(id -u):$(id -g)" --env HOME=/tmp --env CI --env DISCIPLINE_IN_CONTAINER=1 --env DISCIPLINE_VERSION="$app_version" \
 	--volume "$PWD:/work" --workdir /work \
 	"mcr.microsoft.com/playwright:v$version-noble" \
 	npx playwright test "$@"
