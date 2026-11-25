@@ -1,0 +1,74 @@
+# Builds the desktop app's packages, by hand only (Actions tab -> "Desktop builds" -> Run workflow).
+# The packages are attached to the run as artifacts (kept 30 days):
+#   Linux:   an installer for the current user (-install.sh: program, menu entry and icons under
+#            ~/.local; run with sh), .deb, and the portable version (.tar.gz: the program +
+#            Discipline-data folder); all use the system's WebKitGTK 4.1 (most desktops have it)
+#   Windows: installer (-setup.exe, no admin rights needed), and the portable version (.zip:
+#            Discipline.exe + Discipline-data folder; needs the WebView2 runtime, which Windows 10
+#            and 11 have)
+# Windows packages are built here because Tauri can't fully build them on Linux.
+name: Desktop builds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux packages
+    # the oldest supported Ubuntu: the program then also runs on older distributions (glibc)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # from https://v2.tauri.app/start/prerequisites/ (Debian/Ubuntu)
+      - name: Install Tauri's system libraries
+        run: >-
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file
+          libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: rustup update stable && rustup default stable
+      - run: npm ci
+      - run: sh scripts/desktop.sh packages
+      - uses: actions/upload-artifact@v7
+        with:
+          name: discipline-linux
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/portable/*.tar.gz
+            src-tauri/target/release/bundle/installer/*.sh
+          retention-days: 30
+
+  windows:
+    name: Windows packages
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: rustup update stable && rustup default stable
+      - run: npm ci
+      - run: npm run tauri build -- --bundles nsis
+      # the program alone runs too (Tauri links everything in); the folder next to it makes it portable
+      - name: Pack the portable version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./src-tauri/tauri.conf.json').version"
+          $dir = "src-tauri/target/release/bundle/portable/Discipline_${version}_x64-portable"
+          New-Item -ItemType Directory -Force "$dir/Discipline-data" | Out-Null
+          Copy-Item src-tauri/target/release/discipline.exe "$dir/Discipline.exe"
+          Copy-Item scripts/portable-readme.txt "$dir/Discipline-data/README.txt"
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: discipline-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/portable/*.zip
+          retention-days: 30

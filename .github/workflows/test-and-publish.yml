@@ -43,6 +43,28 @@ jobs:
         with:
           path: dist-pages
 
+  desktop:
+    name: Desktop app (Rust tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # from https://v2.tauri.app/start/prerequisites/ (Debian/Ubuntu)
+      - name: Install Tauri's system libraries
+        run: >-
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file
+          libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      # the Rust build embeds the built web app
+      - run: npm ci && npm run build
+      - run: cargo test
+        working-directory: src-tauri
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: src-tauri
+
+  # only the web app's tests gate publishing: a desktop (Rust) problem shouldn't keep fixes from the phone
   publish:
     name: Publish to GitHub Pages
     needs: web

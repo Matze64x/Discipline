@@ -1,0 +1,31 @@
+[package]
+name = "discipline"
+version = "0.1.0"
+description = "Discipline desktop app: a habit tracker"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "discipline_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+log = "0.4"
+tauri = { version = "2.12.7", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# small downloads: the Linux version doesn't bundle its browser engine, so the program is most of it
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
