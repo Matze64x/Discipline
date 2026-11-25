@@ -56,7 +56,7 @@
 	}
 </script>
 
-<Modal title={`${habit.name}, ${formatDate(date)}`} {onclose}>
+<Modal title={`${habit.name}, ${formatDate(date)}`} color={habit.color} {onclose}>
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();

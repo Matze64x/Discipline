@@ -5,6 +5,7 @@
 	repeat: one press, one submit (else holding it submitted once per key repeat).
 -->
 <script lang="ts">
+	import { accentStyle } from '../palette';
 	import type { Snippet } from 'svelte';
 	import { shortcuts } from '../shortcuts.svelte';
 
@@ -13,6 +14,7 @@
 		onclose,
 		wide = false,
 		closeButton = false,
+		color = null,
 		children,
 	}: {
 		title: string;
@@ -20,6 +22,8 @@
 		wide?: boolean;
 		/** An × next to the title, which stays on top while the dialog scrolls (for long dialogs) */
 		closeButton?: boolean;
+		/** A habit's color ("#rrggbb") to use as the accent (its dialogs); null: the app's */
+		color?: string | null;
 		children: Snippet;
 	} = $props();
 
@@ -55,6 +59,7 @@
 
 <dialog
 	bind:this={dialog}
+	style={color ? accentStyle(color) : undefined}
 	tabindex="-1"
 	class:wide
 	aria-labelledby={id}

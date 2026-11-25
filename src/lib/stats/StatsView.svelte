@@ -23,6 +23,7 @@
 	import { shortcuts } from '../shortcuts.svelte';
 	import SelectableList from '../ui/SelectableList.svelte';
 	import type { Workspace } from '../workspace.svelte';
+	import { accentStyle } from '../palette';
 	import HabitStats from './HabitStats.svelte';
 	import WeekDots from './WeekDots.svelte';
 	import WeekLine from './WeekLine.svelte';
@@ -138,7 +139,8 @@
 		cards
 	>
 		{#snippet row(h)}
-			<div class="habit" class:archived={h.archived !== null}>
+			<!-- (its squares in its color) -->
+			<div class="habit" class:archived={h.archived !== null} style={accentStyle(h.color)}>
 				<div class="name">
 					<span class="dot" style:background={h.color}></span>
 					<span class="title">{h.name}</span>

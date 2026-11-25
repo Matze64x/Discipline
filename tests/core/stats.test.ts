@@ -299,6 +299,26 @@ describe('limits', () => {
 		expect(results.map((r) => [r.aim, r.from, r.done, r.met])).toEqual([['limit', '2026-11-02', 2, false]]);
 	});
 
+	it('a limit’s day fills with what’s left of its allowance, today too', () => {
+		const COFFEE: HabitDraft = { name: 'Coffee', kind: 'amount', unit: 'cups', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'limit', target: 2 } };
+		let { data, id } = make(COFFEE);
+		data = setEntry(data, id, day('2026-11-02'), 1, T);
+		data = setEntry(data, id, day('2026-11-03'), 3, T);
+		const today = day('2026-11-05');
+		const h = () => data.habits[0]!;
+		expect(dayCell(data, h(), day('2026-11-02'), today)).toEqual({ state: 'met', value: 1, fill: 0.5 });
+		expect(dayCell(data, h(), day('2026-11-03'), today)).toEqual({ state: 'missed', value: 3, fill: 0 });
+		expect(dayCell(data, h(), day('2026-11-04'), today)).toEqual({ state: 'met', value: 0, fill: 1 });
+		// today: still open, and full
+		expect(dayCell(data, h(), today, today)).toEqual({ state: 'open', value: 0, fill: 1 });
+		data = setEntry(data, id, today, 1.5, T);
+		expect(dayCell(data, h(), today, today)).toEqual({ state: 'open', value: 1.5, fill: 0.25 });
+		// a weekly limit: the day's share of it (14 a week: 2 a day)
+		const weekly = make({ ...COFFEE, goal: { period: 'week', aim: 'limit', target: 14 } });
+		const w = setEntry(weekly.data, weekly.id, day('2026-11-02'), 1, T);
+		expect(dayCell(w, w.habits[0]!, day('2026-11-02'), today).fill).toBe(0.5);
+	});
+
 	it('amount buckets know their aim', () => {
 		const { data } = make({ ...RUN, goal: { period: 'week', aim: 'limit', target: 10 } });
 		expect(amountBuckets(data, data.habits[0]!, [{ from: day('2026-11-02'), to: day('2026-11-08') }], 1)[0]).toMatchObject({ target: 10, aim: 'limit' });

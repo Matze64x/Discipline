@@ -10,6 +10,8 @@ export function cellLook(cell: DayCell): { kind: string; fill: number } {
 		case 'missed':
 			return { kind: 'missed', fill: 0 };
 		case 'free':
+		// (a limit used up exactly: kept, but nothing left)
+		case 'met':
 			return { kind: 'empty', fill: 0 };
 		case 'open':
 			return { kind: 'open', fill: 0 };
@@ -21,7 +23,7 @@ export function cellLook(cell: DayCell): { kind: string; fill: number } {
 }
 
 /** "Wed 12.11.: 5 min", "Mon 3.11.: done"; limits: "Tue 4.11.: slipped", "Thu 6.11.: 3 cups (over)" */
-export function describeCell(cell: DayCell, date: CivilDate, habit: Habit): string {
+export function describeCell(cell: DayCell, date: CivilDate, habit: Habit, today: CivilDate): string {
 	const day = `${weekdayName(weekday(date))} ${formatShortDate(date)}`;
 	if (cell.state === 'inactive') return `${day}: –`;
 	const limit = goalOn(habit, date)?.aim === 'limit';
@@ -31,7 +33,7 @@ export function describeCell(cell: DayCell, date: CivilDate, habit: Habit): stri
 				? 'slipped'
 				: cell.state === 'notDue'
 					? 'not due'
-					: cell.state === 'open' || cell.state === 'free' && cell.fill === 0
+					: cell.state === 'open' || date === today
 						? 'kept so far'
 						: 'kept'
 			: cell.value > 0

@@ -39,6 +39,7 @@
 	import DayStrip from './DayStrip.svelte';
 	import { describeDayAmount, formatDate, formatMonth, formatShortDate, formatValue, withUnit } from './display';
 	import { formatShort } from './short-number';
+	import { textOn } from './palette';
 	import { settings } from './settings.svelte';
 	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
 	import { swipe } from './ui/swipe';
@@ -108,7 +109,7 @@
 	}
 	/**
 	 * A day's ring above: all habits' daily goals met, or how the focused habit did (its goal's share
-	 * done; a limit: full when kept; none on days it doesn't count or isn't due)
+	 * done; a limit: what's left of its allowance; none on days it doesn't count or isn't due)
 	 */
 	function ring(day: CivilDate): { fill: number; text: string } | null {
 		if (!focused) {
@@ -117,7 +118,7 @@
 		}
 		const cell = dayCell(workspace.data, focused, day, clock.today);
 		if (cell.state === 'inactive' || cell.state === 'notDue') return null;
-		return { fill: cell.fill, text: describeCell(cell, day, focused).replace(/^[^:]*: /, '') };
+		return { fill: cell.fill, text: describeCell(cell, day, focused, clock.today).replace(/^[^:]*: /, '') };
 	}
 
 	let selectedId = $state<Id | null>(null);
@@ -275,9 +276,8 @@
 		{@const { habit, progress, value } = r}
 		{@const daily = progress.goal.period === 'day'}
 		{@const limit = progress.goal.aim === 'limit'}
-		<!-- a limit's mark never fills (an entry is a slip, ✗); it turns red once the limit is broken -->
-		{@const filled = !limit && (habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met)}
-		{@const over = limit && progress.due && !progress.met}
+		<!-- a limit's mark is filled while it's kept and empties once it's broken (an entry of a yes/no limit is a slip, ✗) -->
+		{@const filled = limit ? progress.due && progress.met : habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met}
 		<!-- the mark stays a circle: a long amount is written short, and smaller -->
 		{@const markText = habit.kind === 'check' ? (value === null ? '' : limit ? '✗' : '✓') : formatShort(value ?? 0)}
 		{@const progressText = daily
@@ -297,8 +297,8 @@
 				type="button"
 				class="mark"
 				class:filled
-				class:over
 				style:--color={habit.color}
+				style:--on-color={textOn(habit.color)}
 				style:font-size={markText.length <= 2 ? null : markText.length === 3 ? '0.9rem' : markText.length === 4 ? '0.78rem' : '0.68rem'}
 				tabindex="-1"
 				aria-hidden="true"
@@ -564,11 +564,7 @@
 	}
 	.mark.filled {
 		background: var(--color);
-		color: #fff;
-	}
-	.mark.over {
-		border-color: var(--negative);
-		color: var(--negative);
+		color: var(--on-color);
 	}
 	/* the name and its progress, the dots or bar below (all starting at the same place) */
 	.text {

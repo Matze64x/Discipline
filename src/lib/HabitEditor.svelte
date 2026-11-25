@@ -138,7 +138,8 @@
 	}
 </script>
 
-<Modal title={original ? 'Edit habit' : 'New habit'} {onclose}>
+<!-- (in the habit's color, as it's being picked) -->
+<Modal title={original ? 'Edit habit' : 'New habit'} color={/^#[0-9a-f]{6}$/i.test(color) ? color : null} {onclose}>
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();

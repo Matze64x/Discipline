@@ -89,8 +89,8 @@ export interface DayCell {
 	/**
 	 * How much of what the day asks for was done, 0…1: check habits 1 if done; amounts against the
 	 * daily target, or against the share of a weekly or monthly target that falls on one day.
-	 * Limits: 1 for a day kept (within a daily limit, or nothing under a weekly or monthly one; today
-	 * only once over), else 0.
+	 * Limits the other way round: what's left of the day's allowance (1: nothing entered, 0: used
+	 * up or broken), also today.
 	 */
 	readonly fill: number;
 }
@@ -102,9 +102,13 @@ export function dayCell(data: DisciplineData, habit: Habit, date: CivilDate, tod
 	const value = entriesBetween(entriesByHabit(data).get(habit.id) ?? [], date, date)[0]?.value ?? 0;
 	const { goal } = progress;
 	if (goal.aim === 'limit') {
-		if (goal.period !== 'day') return { state: 'free', value, fill: value === 0 && date < today ? 1 : 0 };
+		// what's left of the day's allowance: full with nothing entered, emptier with each amount (a
+		// yes/no limit: full or empty; under a weekly or monthly limit, a day's share of it)
+		const allowance = goal.period === 'day' ? goal.target : goal.target / (daysBetween(progress.from, progress.to) + 1);
+		const left = value === 0 ? 1 : habit.kind === 'amount' && allowance > 0 ? Math.max(0, 1 - value / allowance) : 0;
+		if (goal.period !== 'day') return { state: 'free', value, fill: left };
 		const state = !progress.due ? 'notDue' : !isSettled(progress, today) ? 'open' : progress.met ? 'met' : 'missed';
-		return { state, value, fill: state === 'met' ? 1 : 0 };
+		return { state, value, fill: state === 'notDue' ? 0 : left };
 	}
 	if (goal.period === 'day') {
 		const fill = progress.met ? 1 : habit.kind === 'check' ? (value > 0 ? 1 : 0) : Math.min(1, value / goal.target);

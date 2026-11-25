@@ -30,6 +30,7 @@
 	import { describeGoal, formatDate, formatMonth, formatShortDate, formatValue, weekdayName, withUnit } from '../display';
 	import type { Workspace } from '../workspace.svelte';
 	import BarChart, { type Bar } from './BarChart.svelte';
+	import { accentStyle } from '../palette';
 	import { cellLook, describeCell } from './cells';
 	import { niceTicks } from './scale';
 
@@ -105,7 +106,7 @@
 	}
 	function tapDay(event: MouseEvent) {
 		const date = (event.target as HTMLElement).dataset.date as CivilDate | undefined;
-		if (date) dayInfo = describeCell(dayCell(data, habit, date, today), date, habit);
+		if (date) dayInfo = describeCell(dayCell(data, habit, date, today), date, habit, today);
 	}
 
 	// yes/no habits: done per weekday
@@ -150,8 +151,9 @@
 		buckets.map((b, i) => {
 			const met = b.aim === 'build' ? b.target > 0 && b.total >= b.target : b.total <= b.target;
 			const current = b.to >= today;
-			// a limit: kept (full), kept so far (soft), broken (red)
-			const tone = b.aim === 'build' ? (met ? 'full' : current ? 'soft' : 'weak') : !met ? 'bad' : current ? 'soft' : 'full';
+			// a limit: kept (full), kept so far (soft), broken (grey: never red, user 2026-11-25; and a red
+			// habit's bars would look the same)
+			const tone = b.aim === 'build' ? (met ? 'full' : current ? 'soft' : 'weak') : !met ? 'weak' : current ? 'soft' : 'full';
 			const name = monthly ? formatMonth(b.from, { year: '2-digit' }) : `Week of ${formatShortDate(b.from)}`;
 			// labels: each month, or a year's first month when there are many
 			const first = monthly ? (buckets.length <= 12 || dateParts(b.from).month === 1) : i === 0 || dateParts(b.from).month !== dateParts(buckets[i - 1]!.from).month;
@@ -168,7 +170,8 @@
 	);
 </script>
 
-<div class="stats">
+<!-- in the habit's color: calendar, bars, range -->
+<div class="stats" style={accentStyle(habit.color)}>
 	<button class="back" bind:this={backButton} onclick={onback}>‹ Stats</button>
 	<h2>{habit.name}</h2>
 	<p class="sub">{habit.archived !== null ? 'Archived' : describeGoal(latestGoal(habit), habit)} · since {formatDate(startOf(habit))}</p>
@@ -215,7 +218,7 @@
 			<h3>Per {monthly ? 'month' : 'week'}{habit.unit ? ` (${habit.unit})` : ''}</h3>
 			<BarChart bars={amountBars} max={amountTicks.at(-1)!} ticks={amountTicks} label={`Totals per ${monthly ? 'month' : 'week'}`} summary={amountSummary} oninfo={(i) => (chartInfo = i)} />
 			{#if limit}
-				<p class="legend"><i class="full"></i>within <i class="bad"></i>over <i class="line"></i>limit</p>
+				<p class="legend"><i class="full"></i>within <i class="weak"></i>over <i class="line"></i>limit</p>
 			{:else}
 				<p class="legend"><i class="full"></i>goal met <i class="weak"></i>below <i class="line"></i>goal</p>
 			{/if}
@@ -342,9 +345,6 @@
 	}
 	.legend .weak {
 		background: color-mix(in srgb, var(--muted) 55%, transparent);
-	}
-	.legend .bad {
-		background: var(--negative);
 	}
 	.legend .line {
 		height: 2px;

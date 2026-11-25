@@ -271,6 +271,9 @@
 		),
 	);
 
+	/** When the list was last pressed (a focus right after it is the press's, not a keyboard's) */
+	let pressedAt = -Infinity;
+
 	/** The item of the row a mouse event happened in */
 	function itemAt(event: MouseEvent): T | undefined {
 		const k = (event.target as HTMLElement).closest('[data-key]')?.getAttribute('data-key');
@@ -288,8 +291,11 @@
 	tabindex="0"
 	aria-label={label}
 	aria-activedescendant={selectedIndex >= 0 && selected !== null ? domId(selected) : undefined}
-	onfocus={() => {
-		if (selectedIndex < 0) move(1);
+	onpointerdown={(e) => (pressedAt = e.timeStamp)}
+	onfocus={(e) => {
+		// (focused by a press: the click that follows selects; selecting the first row here could
+		// scroll it into view under the finger, and the click would then miss)
+		if (selectedIndex < 0 && e.timeStamp - pressedAt > 1000) move(1);
 	}}
 	onclick={(e) => {
 		const item = itemAt(e);
@@ -353,7 +359,7 @@
 		box-shadow: none;
 	}
 	.cards .option.selected > :global(*) {
-		outline: 2px solid var(--accent);
+		outline: 2px solid var(--focus);
 		outline-offset: -1px;
 	}
 	.list.cards:not(:focus) .option.selected > :global(*) {

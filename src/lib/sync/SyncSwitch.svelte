@@ -91,7 +91,7 @@
 		font-weight: 600;
 	}
 	.sync:has(input:focus-visible) {
-		outline: 2px solid var(--accent);
+		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
 	input:focus-visible {

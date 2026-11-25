@@ -10,6 +10,8 @@
 	--accent: #2563eb;
 	--accent-text: #ffffff;
 	--accent-soft: rgb(37 99 235 / 0.12);
+	/* keyboard focus outlines: always the app's blue (a habit's color may be too light to see) */
+	--focus: #2563eb;
 	/* the same on the surface, opaque: for drawing "holes" over something on a hovered row */
 	--accent-soft-on-surface: color-mix(in srgb, #2563eb 12%, var(--surface));
 	--positive: #15803d;
@@ -43,6 +45,7 @@
 		--accent: #4d8dff;
 		--accent-text: #000000;
 		--accent-soft: rgb(77 141 255 / 0.2);
+		--focus: #4d8dff;
 		--accent-soft-on-surface: color-mix(in srgb, var(--accent) 18%, var(--surface));
 		--positive: #b8f53b;
 		--negative: #ff4d4d;
@@ -91,7 +94,7 @@ button:disabled {
 }
 
 button:focus-visible {
-	outline: 2px solid var(--accent);
+	outline: 2px solid var(--focus);
 	outline-offset: 2px;
 }
 
@@ -111,7 +114,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-	outline: 2px solid var(--accent);
+	outline: 2px solid var(--focus);
 	outline-offset: 1px;
 }
 
@@ -197,9 +200,10 @@ kbd {
 	padding: 0 0.3rem;
 }
 
-/* a habit's day in the stats (calendar, week dots; lib/stats/cells.ts): done in the accent color,
-   partly done lighter, missed grey, a day of a weekly/monthly goal without anything faint grey, a
-   day a daily goal doesn't ask for a small dot (nothing before the start or after the end) */
+/* a habit's day in the stats (calendar, week dots; lib/stats/cells.ts): done in the accent color
+   (the habit's), partly done lighter (a limit: what's left of its allowance), missed grey, nothing
+   to show yet (a weekly/monthly goal's day without anything, a limit used up but kept) faint grey,
+   a day a daily goal doesn't ask for a small dot (nothing before the start or after the end) */
 .cell {
 	border-radius: 2px;
 }

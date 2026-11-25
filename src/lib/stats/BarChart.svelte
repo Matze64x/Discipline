@@ -9,8 +9,8 @@
 		label: string | null;
 		value: number;
 		target?: number;
-		/** full: in the accent color (e.g. the goal met); soft: lighter (still open); weak: grey; bad: red (a limit broken) */
-		tone: 'full' | 'soft' | 'weak' | 'bad';
+		/** full: in the accent color (e.g. the goal met); soft: lighter (still open); weak: grey (missed, a limit broken) */
+		tone: 'full' | 'soft' | 'weak';
 		info: string;
 	}
 </script>
@@ -103,9 +103,6 @@
 	}
 	.bar.soft {
 		fill: color-mix(in srgb, var(--accent) 45%, transparent);
-	}
-	.bar.bad {
-		fill: var(--negative);
 	}
 	.bar.weak {
 		fill: color-mix(in srgb, var(--muted) 55%, transparent);
