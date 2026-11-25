@@ -1,13 +1,19 @@
-<!-- Preferences of this device (stored in the browser, not in the data file). Changes apply at once. -->
+<!--
+	Preferences of this device (stored in the browser, not in the data file) and the devices it syncs
+	with. Changes apply at once.
+-->
 <script lang="ts">
 	import { DATE_STYLES, formatDateAs, today, type DateStyle } from '../core';
 	import { attempt } from './attempt';
-	import { chooseFileToSave, dataLocation, isDesktop } from './desktop';
+	import { chooseFileToSave, dataLocation, isDesktop, suggestedBackupPath } from './desktop';
 	import { DAY_STARTS, settings } from './settings.svelte';
+	import type { DesktopSync } from './sync/desktop-sync.svelte';
+	import Devices from './sync/Devices.svelte';
+	import type { PhoneSync } from './sync/phone-sync.svelte';
 	import Modal from './ui/Modal.svelte';
 	import type { Workspace } from './workspace.svelte';
 
-	let { workspace, onclose }: { workspace: Workspace; onclose: () => void } = $props();
+	let { workspace, sync, onclose }: { workspace: Workspace; sync: DesktopSync | PhoneSync; onclose: () => void } = $props();
 	const sample = today();
 	const time = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 	const location = isDesktop ? dataLocation().catch(() => null) : null;
@@ -19,7 +25,7 @@
 		await attempt(
 			(text) => (failure = text),
 			async () => {
-				const path = await chooseFileToSave('Back up to', settings.backupPath ?? 'discipline-backup.json');
+				const path = await chooseFileToSave('Back up to', settings.backupPath ?? (await suggestedBackupPath()));
 				if (path) await workspace.setBackupPath(path);
 			},
 		);
@@ -74,6 +80,8 @@
 				{/if}
 			{/await}
 		{/if}
+		<hr />
+		<Devices {sync} />
 		<div class="buttons"><button type="button" class="primary" onclick={onclose}>Done</button></div>
 	</div>
 </Modal>
@@ -110,6 +118,12 @@
 	.error {
 		color: var(--negative);
 		margin: 0;
+	}
+	hr {
+		width: 100%;
+		margin: 0.75rem 0 0.25rem;
+		border: none;
+		border-top: 1px solid var(--border);
 	}
 	.where code {
 		overflow-wrap: anywhere;

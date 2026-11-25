@@ -24,6 +24,17 @@ export async function chooseExistingFile(title: string): Promise<string | null> 
 	return open({ title, filters: FILTERS, multiple: false, directory: false });
 }
 
+/** Where a new backup file is suggested: in the Documents folder (a bare name would mean the folder the app was started from) */
+export async function suggestedBackupPath(): Promise<string> {
+	const name = 'discipline-backup.json';
+	try {
+		const { documentDir, join } = await import('@tauri-apps/api/path');
+		return await join(await documentDir(), name);
+	} catch {
+		return name;
+	}
+}
+
 /** Lets the user choose where to save a Discipline file (the dialog asks before replacing one). Returns its path, or null. */
 export async function chooseFileToSave(title: string, defaultPath: string): Promise<string | null> {
 	const { ask, save } = await import('@tauri-apps/plugin-dialog');

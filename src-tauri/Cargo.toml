@@ -18,6 +18,17 @@ tauri = { version = "2.12.7", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+str0m = { version = "0.25", default-features = false, features = ["rust-crypto"] }
+serde_json = "1"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+gethostname = "1"
+sha2 = "0.10"
+getrandom = "0.3"
+serde = { version = "1", features = ["derive"] }
+rustls = { version = "0.23.46", default-features = false, features = ["std", "aws_lc_rs"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["aws_lc_rs"] }
+tokio = { version = "1.54.1", features = ["net", "io-util", "time", "macros", "rt", "sync"] }
+mdns-sd = { version = "0.22.0", features = ["async"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -31,3 +31,6 @@ dist-pages
 /.claude/
 /docs/
 test-results/
+
+# a backup file the desktop app was pointed at while developing (personal data)
+/discipline-backup.json

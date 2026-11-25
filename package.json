@@ -10,11 +10,12 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.core.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "sh scripts/test-e2e.sh",
+    "test:e2e": "sh scripts/test-e2e.sh && npm run test:phone-sync",
     "test:firefox": "playwright test --project=firefox",
     "test:webkit": "sh scripts/test-e2e.sh --project=iphone",
     "test:all": "npm run check && npm test && npm run test:e2e",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:phone-sync": "playwright test --project=firefox phone-sync"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
@@ -32,6 +33,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.12.5",
     "@tauri-apps/plugin-dialog": "^2.8.4",
-    "idb-keyval": "^6.3.0"
+    "idb-keyval": "^6.3.0",
+    "jsqr": "^1.4.0"
   }
 }
