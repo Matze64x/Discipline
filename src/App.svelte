@@ -375,7 +375,7 @@
 		border-radius: 0.5rem;
 		background: none;
 		color: var(--muted);
-		min-height: 2.25rem;
+		min-height: var(--tap);
 	}
 	/* phones: the tabs get a row of their own; the shortcut help is for keyboards (? still
 	   opens it) */
@@ -398,7 +398,7 @@
 		font-weight: 600;
 	}
 	.tab.icon {
-		min-width: 2.25rem;
+		min-width: var(--tap);
 		display: grid;
 		place-items: center;
 	}
@@ -469,6 +469,8 @@
 	.dismiss {
 		flex: none;
 		min-height: 0;
+		min-width: var(--tap);
+		align-self: stretch;
 		padding: 0 0.5rem;
 		border: none;
 		background: none;

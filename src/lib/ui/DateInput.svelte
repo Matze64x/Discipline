@@ -148,8 +148,8 @@
 	}
 	.calendar {
 		position: relative;
-		width: 2.5rem;
-		height: 2.5rem;
+		width: max(2.5rem, var(--tap));
+		height: max(2.5rem, var(--tap));
 		flex: none;
 		display: grid;
 		place-items: center;

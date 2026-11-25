@@ -37,7 +37,9 @@ test('a habit’s details: tiles, calendar, chart; back with the button or Escap
 	await expect(page.getByText('67.5 min', { exact: true })).toBeVisible();
 	await page.locator('[data-date="2026-11-21"]').click();
 	await expect(page.getByText(/^Sat .*: 42\.5 min$/)).toBeVisible();
-	await expect(page.getByRole('img', { name: 'Totals per week' })).toBeVisible();
+	await expect(page.getByRole('img', { name: /^Totals per week: goal met in 0 of 8 weeks, / })).toBeVisible();
+	// screen readers get each month's gist (today is still open)
+	await expect(page.getByRole('img', { name: 'November 2026: met on 1 of 24 days' })).toBeAttached();
 
 	// the range: 3 months back from November is still the start in October
 	await page.getByRole('button', { name: '3 months' }).click();
@@ -46,7 +48,7 @@ test('a habit’s details: tiles, calendar, chart; back with the button or Escap
 	await page.getByRole('button', { name: '‹ Stats' }).click();
 	await expect(list).toBeVisible();
 	await list.getByRole('option').filter({ hasText: 'Run' }).click();
-	await expect(page.getByRole('img', { name: 'Done by weekday' })).toBeVisible();
+	await expect(page.getByRole('img', { name: /^Done by weekday: Mon: 0 of \d+ done; / })).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(list).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Run' })).toBeHidden();

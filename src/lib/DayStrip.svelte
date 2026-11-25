@@ -92,6 +92,8 @@
 		box-shadow: inset 0 0 0 2px var(--accent);
 	}
 	.day:disabled {
+		/* (a swipe may start on a day to come: WebKit sends a disabled button's events nowhere) */
+		pointer-events: none;
 		color: var(--muted);
 		opacity: 0.45;
 	}

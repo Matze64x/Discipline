@@ -45,6 +45,9 @@ async function runningVersion(page: Page): Promise<string> {
 
 const updateNotice = (page: Page) => page.getByRole('status').filter({ hasText: 'New version available.' });
 
+/** Whether the page marked before the update is still there (while it reloads: yes, ask again) */
+const stillOld = (page: Page) => page.evaluate(() => 'beforeUpdate' in window).catch(() => true);
+
 test('the settings show the version and check for updates', async ({ page }) => {
 	await openPublished(page);
 	const settings = await openSettings(page);
@@ -86,7 +89,7 @@ test('manual updates: a new version waits until Update, then takes over', async 
 	// Update: installs it, and the app reloads with it (with its settings)
 	await page.evaluate(() => Object.assign(window, { beforeUpdate: true }));
 	await updateNotice(page).getByRole('button', { name: 'Update' }).click();
-	await expect.poll(() => page.evaluate(() => 'beforeUpdate' in window), { timeout: 30_000 }).toBe(false);
+	await expect.poll(() => stillOld(page), { timeout: 30_000 }).toBe(false);
 	await waitForApp(page);
 	expect(await runningVersion(page)).toBe('next');
 	await expect(updateNotice(page)).toHaveCount(0);
@@ -121,7 +124,7 @@ test('automatic: a new version installs in the background and takes over when th
 
 	// the app goes to the background: it switches
 	await hide();
-	await expect.poll(() => page.evaluate(() => 'beforeUpdate' in window), { timeout: 30_000 }).toBe(false);
+	await expect.poll(() => stillOld(page), { timeout: 30_000 }).toBe(false);
 	await waitForApp(page);
 	expect(await runningVersion(page)).toBe('next');
 });

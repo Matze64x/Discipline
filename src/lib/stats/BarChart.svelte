@@ -22,6 +22,7 @@
 		ticks = [],
 		values = null,
 		label,
+		summary,
 		oninfo,
 	}: {
 		bars: readonly Bar[];
@@ -33,6 +34,8 @@
 		values?: ((value: number) => string) | null;
 		/** What the chart shows, for screen readers */
 		label: string;
+		/** For screen readers, after the label: what the bars say (default: each bar's `info`, if there are at most 12) */
+		summary?: string;
 		oninfo: (info: string) => void;
 	} = $props();
 
@@ -54,7 +57,7 @@
 	}
 </script>
 
-<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={[label, summary ?? (bars.length <= 12 ? bars.map((b) => b.info).join('; ') : '')].filter(Boolean).join(': ')}>
 	{#each ticks as t (t)}
 		<line class="grid" x1="0" x2={W - right} y1={y(t)} y2={y(t)} />
 		<text class="tick" x={W - right + 4} y={y(t) + 3.5}>{tickLabel(t)}</text>

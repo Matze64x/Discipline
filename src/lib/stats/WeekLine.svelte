@@ -10,6 +10,7 @@
 	}: {
 		/** value null: nothing counted that week; label: under the week (a month's first week) */
 		points: readonly { key: string; value: number | null; label: string | null; info: string }[];
+		/** For screen readers: what the chart shows, with its gist */
 		label: string;
 		oninfo: (info: string) => void;
 	} = $props();

@@ -73,7 +73,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
-		min-height: 2.25rem;
+		min-height: var(--tap);
 		padding: 0 0.75rem 0 0.3rem;
 		border: 1px solid var(--control-border);
 		border-radius: 999px;

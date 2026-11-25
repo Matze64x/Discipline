@@ -86,6 +86,23 @@
 		for (let d = m; d < addMonths(m, 1); d = addDays(d, 1)) days.push(d);
 		return days;
 	}
+	/**
+	 * A month of the calendar for screen readers: "November 2026: met on 20 of 25 days", for weekly
+	 * or monthly goals "done on 8 days" (limits: "kept", "slipped", amounts "logged"). The words
+	 * follow the latest goal, like the legend.
+	 */
+	function monthSummary(m: CivilDate): string {
+		let [met, judged, free] = [0, 0, 0];
+		for (const d of monthDays(m)) {
+			if (d === null) continue;
+			const cell = dayCell(data, habit, d, today);
+			if (cell.state === 'met' || cell.state === 'missed') judged++;
+			if (cell.state === 'met') met++;
+			if (cell.state === 'free' && cell.value > 0) free++;
+		}
+		const parts = [judged ? `${limit ? 'kept' : 'met'} on ${met} of ${judged} days` : '', free ? `${limit ? (habit.kind === 'check' ? 'slipped' : 'logged') : 'done'} on ${free} days` : ''].filter(Boolean);
+		return `${formatMonth(m, { month: 'long', year: 'numeric' })}: ${parts.join(', ') || 'nothing to count'}`;
+	}
 	function tapDay(event: MouseEvent) {
 		const date = (event.target as HTMLElement).dataset.date as CivilDate | undefined;
 		if (date) dayInfo = describeCell(dayCell(data, habit, date, today), date, habit);
@@ -120,6 +137,15 @@
 		return amountBuckets(data, habit, list, weekStart);
 	});
 	const amountTicks = $derived(niceTicks(Math.max(0, ...buckets.map((b) => Math.max(b.total, b.target)))));
+	/** The bars for screen readers: "goal met in 30 of 52 weeks, 5 km on average" */
+	const amountSummary = $derived.by(() => {
+		// finished buckets since the habit's start
+		const done = amountBars.filter((_, i) => buckets[i]!.to < today && buckets[i]!.to >= startOf(habit));
+		const met = done.filter((b) => b.tone === 'full').length;
+		const unit = monthly ? 'months' : 'weeks';
+		const average = done.length ? done.reduce((sum, b) => sum + b.value, 0) / done.length : 0;
+		return `${limit ? 'within the limit' : 'goal met'} in ${met} of ${done.length} ${unit}, ${withUnit(Math.round(average * 10) / 10, habit.unit)} on average`;
+	});
 	const amountBars = $derived<Bar[]>(
 		buckets.map((b, i) => {
 			const met = b.aim === 'build' ? b.target > 0 && b.total >= b.target : b.total <= b.target;
@@ -166,7 +192,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (taps for details; the numbers are in the tiles and charts too) -->
 		<div class="months" onclick={tapDay}>
 			{#each months as m (m)}
-				<div class="month">
+				<div class="month" role="img" aria-label={monthSummary(m)}>
 					<span class="month-name">{monthLabel(m)}</span>
 					<div class="days">
 						{#each monthDays(m) as d, i (d ?? `blank-${i}`)}
@@ -187,7 +213,7 @@
 			<BarChart bars={byWeekday} max={100} values={(v) => String(Math.round(v))} label={`${limit ? 'Slipped' : 'Done'} by weekday`} oninfo={(i) => (chartInfo = i)} />
 		{:else}
 			<h3>Per {monthly ? 'month' : 'week'}{habit.unit ? ` (${habit.unit})` : ''}</h3>
-			<BarChart bars={amountBars} max={amountTicks.at(-1)!} ticks={amountTicks} label={`Totals per ${monthly ? 'month' : 'week'}`} oninfo={(i) => (chartInfo = i)} />
+			<BarChart bars={amountBars} max={amountTicks.at(-1)!} ticks={amountTicks} label={`Totals per ${monthly ? 'month' : 'week'}`} summary={amountSummary} oninfo={(i) => (chartInfo = i)} />
 			{#if limit}
 				<p class="legend"><i class="full"></i>within <i class="bad"></i>over <i class="line"></i>limit</p>
 			{:else}
@@ -208,7 +234,7 @@
 		background: none;
 		color: var(--muted);
 		padding: 0.25rem 0.5rem 0.25rem 0;
-		min-height: 2.25rem;
+		min-height: var(--tap);
 	}
 	h2 {
 		margin: 0;

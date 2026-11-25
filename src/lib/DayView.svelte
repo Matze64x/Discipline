@@ -36,6 +36,7 @@
 	import { describeDayAmount, formatDate, formatMonth, formatShortDate, formatValue, withUnit } from './display';
 	import { settings } from './settings.svelte';
 	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
+	import { swipe } from './ui/swipe';
 	import { shortcuts } from './shortcuts.svelte';
 	import SelectableList from './ui/SelectableList.svelte';
 	import type { Workspace } from './workspace.svelte';
@@ -200,8 +201,8 @@
 	);
 </script>
 
-<!-- (on wide screens the days stay together) -->
-<div class="calendar">
+<!-- (on wide screens the days stay together; a swipe pages like ‹ ›, never past today) -->
+<div class="calendar" use:swipe={{ go: page, can: (by) => by < 0 || !isToday }}>
 <div class="toolbar">
 	<button class="nav" aria-label={settings.showMonth ? 'The month before' : 'The week before'} title="Shift+←" onclick={() => page(-1)}>‹</button>
 	<h2>{settings.showMonth ? formatMonth(date, { month: 'short', year: 'numeric' }) : weekRange}</h2>
@@ -394,6 +395,9 @@
 		border: 2px solid var(--color);
 		box-sizing: border-box;
 	}
+	.dot {
+		flex: none;
+	}
 	.dot.done {
 		background: var(--color);
 	}
@@ -479,10 +483,10 @@
 	}
 	.mark {
 		flex: none;
-		min-width: 2.4rem;
-		height: 2.4rem;
+		min-width: max(2.4rem, var(--tap));
+		height: max(2.4rem, var(--tap));
 		padding: 0 0.5rem;
-		border-radius: 1.2rem;
+		border-radius: 999px;
 		border: 2px solid var(--color);
 		background: none;
 		color: var(--text);
@@ -523,8 +527,8 @@
 		gap: 0.25rem;
 	}
 	.actions button {
-		min-width: 2.4rem;
-		height: 2.4rem;
+		min-width: max(2.4rem, var(--tap));
+		height: max(2.4rem, var(--tap));
 		padding: 0 0.4rem;
 	}
 	.actions button[aria-disabled='true'] {

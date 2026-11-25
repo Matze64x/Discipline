@@ -23,6 +23,9 @@
 	}
 	label {
 		position: relative;
+		display: inline-flex;
+		align-items: center;
+		min-height: calc(var(--tap) - 2px);
 		padding: 0.3rem 0.7rem;
 		cursor: pointer;
 		color: var(--muted);

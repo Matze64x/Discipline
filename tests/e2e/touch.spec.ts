@@ -94,3 +94,48 @@ test('edit, reorder, archive and delete (with undo) by taps', async ({ page }) =
 	await page.getByRole('button', { name: /^Undo/ }).tap();
 	await expect.poll(names).toEqual(['B', 'Alpha', 'C']);
 });
+
+/** A finger moving sideways over Today's calendar by `dx` pixels */
+async function swipeCalendar(page: Page, dx: number, thenClick = true) {
+	await page.locator('.calendar').evaluate((node, [dx, thenClick]) => {
+		const box = node.getBoundingClientRect();
+		const [x, y] = [box.left + box.width / 2, box.top + box.height / 2];
+		const event = (type: string, clientX: number) => new PointerEvent(type, { pointerType: 'touch', pointerId: 7, isPrimary: true, clientX, clientY: y, bubbles: true });
+		const target = node.querySelector('[role=group] button') ?? node;
+		target.dispatchEvent(event('pointerdown', x));
+		target.dispatchEvent(event('pointermove', x + dx / 2));
+		target.dispatchEvent(event('pointerup', x + dx));
+		// what a browser may send after the finger lifts: not a tap on the day
+		if (thenClick) target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+	}, [dx, thenClick] as const);
+}
+
+test('swiping the calendar pages by week or month, never past today', async ({ page }) => {
+	await page.clock.setFixedTime(new Date(2026, 10, 25, 20, 0));
+	await page.goto('/');
+	const heading = page.locator('.calendar h2');
+	await expect(heading).toHaveText('23.11. – 29.11.');
+	await swipeCalendar(page, 120);
+	await expect(heading).toHaveText('16.11. – 22.11.');
+	// the click after the swipe didn't pick a day: still the same weekday, one week back
+	await expect(page.getByRole('group', { name: 'Days' }).getByRole('button', { pressed: true })).toHaveAccessibleName(/^Wed 18\.11\./);
+	await swipeCalendar(page, -120);
+	await expect(heading).toHaveText('23.11. – 29.11.');
+	await swipeCalendar(page, -120);
+	await expect(heading).toHaveText('23.11. – 29.11.');
+	// too short: nothing
+	await swipeCalendar(page, 30);
+	await expect(heading).toHaveText('23.11. – 29.11.');
+
+	// a swipe the browser sent no click after: a later click (mouse, keyboard) is still a click
+	await swipeCalendar(page, 120, false);
+	await expect(heading).toHaveText('16.11. – 22.11.');
+	await page.waitForTimeout(500);
+	await page.locator('.calendar').getByRole('button', { name: 'Today' }).evaluate((button: HTMLElement) => button.click());
+	await expect(heading).toHaveText('23.11. – 29.11.');
+
+	await page.getByRole('button', { name: 'Month' }).tap();
+	await expect(heading).toHaveText('Nov 2026');
+	await swipeCalendar(page, 120);
+	await expect(heading).toHaveText('Oct 2026');
+});

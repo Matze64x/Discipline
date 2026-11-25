@@ -51,6 +51,11 @@
 			};
 		}),
 	);
+	/** The weeks' average share, in % (null: nothing counted) */
+	const average = $derived.by(() => {
+		const counted = shares.filter((s) => s.counted > 0);
+		return counted.length ? Math.round((counted.reduce((sum, s) => sum + s.met / s.counted, 0) / counted.length) * 100) : null;
+	});
 	let weekInfo = $state<string | null>(null);
 	// a tapped week's text would go stale when the data or the day changes
 	$effect.pre(() => {
@@ -115,7 +120,7 @@
 				<b>{thisWeek.counted ? `${Math.round((thisWeek.met / thisWeek.counted) * 100)} %` : '–'}</b>
 				<span>of the goals met this week{thisWeek.counted ? ` (${thisWeek.met} of ${thisWeek.counted})` : ''}</span>
 			</div>
-			<WeekLine {points} label="Goals met per week, the last 26 weeks" oninfo={(i) => (weekInfo = i)} />
+			<WeekLine {points} label={`Goals met per week, the last 26 weeks${average === null ? '' : `: ${average} % on average`}`} oninfo={(i) => (weekInfo = i)} />
 			<p class="info" aria-live="polite">{weekInfo ?? 'Tap a week to see it.'}</p>
 		</section>
 	</div>

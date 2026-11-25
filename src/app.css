@@ -15,12 +15,21 @@
 	--positive: #15803d;
 	--negative: #c81e1e;
 	--warning: #a16207;
+	/* the smallest size of small controls (tabs, icon buttons, segment choices): larger on touch
+	   screens, where a finger needs about 44 px */
+	--tap: 2.25rem;
 
 	color-scheme: light dark;
 	font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
 	color: var(--text);
 	background: var(--bg);
 	-webkit-text-size-adjust: 100%;
+}
+
+@media (pointer: coarse) {
+	:root {
+		--tap: 2.75rem;
+	}
 }
 
 @media (prefers-color-scheme: dark) {
