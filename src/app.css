@@ -7,11 +7,11 @@
 	--border: #dde3e8;
 	/* borders of controls need 3:1 contrast against the surface */
 	--control-border: #7d8a95;
-	--accent: #0e7490;
+	--accent: #2563eb;
 	--accent-text: #ffffff;
-	--accent-soft: rgb(6 182 212 / 0.14);
+	--accent-soft: rgb(37 99 235 / 0.12);
 	/* the same on the surface, opaque: for drawing "holes" over something on a hovered row */
-	--accent-soft-on-surface: color-mix(in srgb, #06b6d4 14%, var(--surface));
+	--accent-soft-on-surface: color-mix(in srgb, #2563eb 12%, var(--surface));
 	--positive: #15803d;
 	--negative: #c81e1e;
 	--warning: #a16207;
@@ -31,9 +31,9 @@
 		--muted: #a1a8b3;
 		--border: #26282e;
 		--control-border: #60656f;
-		--accent: #00e5ff;
+		--accent: #4d8dff;
 		--accent-text: #000000;
-		--accent-soft: rgb(0 229 255 / 0.18);
+		--accent-soft: rgb(77 141 255 / 0.2);
 		--accent-soft-on-surface: color-mix(in srgb, var(--accent) 18%, var(--surface));
 		--positive: #b8f53b;
 		--negative: #ff4d4d;

@@ -20,7 +20,7 @@ export default defineConfig({
 			// app; it never reloads a running app, so open dialogs or unsaved input can't be lost
 			registerType: 'prompt',
 			injectRegister: false,
-			// icons made from icons/*.svg (placeholders for now)
+			// icons made from icons/*.svg (see icons/README.md)
 			manifest: {
 				id: '.',
 				name: 'Discipline',
