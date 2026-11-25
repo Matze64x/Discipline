@@ -36,7 +36,7 @@ test('add habits, check off and enter amounts by keyboard', async ({ page }) => 
 	await addHabit(page, 'Read', async (dialog) => {
 		await dialog.getByText('Amount', { exact: true }).click();
 		await dialog.getByLabel('Unit').fill('min');
-		await dialog.getByLabel('At least').fill('30');
+		await dialog.getByLabel('Goal', { exact: true }).fill('30');
 	});
 	await addHabit(page, 'Run', async (dialog) => {
 		await dialog.getByText('Weekly', { exact: true }).click();
@@ -111,7 +111,7 @@ test('a new goal counts from today; earlier days keep theirs, and say so', async
 	await open(page, new Date(2026, 10, 16, 20, 0));
 	await addHabit(page, 'Read', async (dialog) => {
 		await dialog.getByText('Amount', { exact: true }).click();
-		await dialog.getByLabel('At least').fill('30');
+		await dialog.getByLabel('Goal', { exact: true }).fill('30');
 	});
 	await addHabit(page, 'Run', async (dialog) => {
 		await dialog.getByText('Weekly', { exact: true }).click();
@@ -123,9 +123,9 @@ test('a new goal counts from today; earlier days keep theirs, and say so', async
 	await habitList(page).focus();
 	await keys(page, 'Home', 'Enter');
 	const dialog = page.getByRole('dialog', { name: 'Edit habit' });
-	await dialog.getByLabel('At least').fill('45');
+	await dialog.getByLabel('Goal', { exact: true }).fill('45');
 	await expect(dialog).toContainText('The new goal counts from today on.');
-	await dialog.getByLabel('At least').press('Enter');
+	await dialog.getByLabel('Goal', { exact: true }).press('Enter');
 	await expect(dialog).toBeHidden();
 	await keys(page, 'g', 't');
 	await expect(dayRow(page, 'Read')).toContainText('0 / 45');

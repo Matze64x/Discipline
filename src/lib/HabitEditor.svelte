@@ -1,6 +1,6 @@
 <!--
-	Adds or edits a habit: name, yes/no or amount (with a unit), the goal (on which weekdays, or how
-	often per week or month), the day it starts, and its color. A changed goal counts from today
+	Adds or edits a habit: name, yes/no or amount (the goal's amount and its unit), how often (on
+	which weekdays, or per week or month; a yes/no habit: on how many days), the day it starts, and its color. A changed goal counts from today
 	on; earlier days keep the goal they had. Editing also offers archiving and deleting.
 -->
 <script lang="ts">
@@ -77,9 +77,6 @@
 	] as const;
 
 	const needsTarget = $derived(!(period === 'day' && kind === 'check'));
-	const targetLabel = $derived(
-		period === 'day' ? 'At least' : kind === 'check' ? `Days per ${period}` : `Total per ${period}`,
-	);
 
 	/** The goal as entered, or a reason why it isn't valid */
 	function goal(): Goal | string {
@@ -158,12 +155,16 @@
 		<div class="row">
 			<Segmented bind:value={kind} options={KINDS} label="Track" />
 			{#if kind === 'amount'}
-				<input class="unit" type="text" autocomplete="off" aria-label="Unit" placeholder="Unit (min, km, …)" bind:value={unit} />
+				<!-- the goal's amount, then its unit: "30 min", how often follows below -->
+				<div class="amount">
+					<input class="target" type="text" inputmode="decimal" autocomplete="off" aria-label="Goal" placeholder="Goal" bind:value={targetText} />
+					<input class="unit" type="text" autocomplete="off" aria-label="Unit" placeholder="Unit (min, km, …)" bind:value={unit} />
+				</div>
 			{/if}
 		</div>
 
-		<span class="label">Goal</span>
-		<div class="row"><Segmented bind:value={period} options={PERIODS} label="Goal" /></div>
+		<span class="label">How often</span>
+		<div class="row"><Segmented bind:value={period} options={PERIODS} label="How often" /></div>
 		{#if period === 'day'}
 			<div class="days" role="group" aria-label="Weekdays">
 				{#each weekdays as day (day)}
@@ -171,11 +172,10 @@
 				{/each}
 			</div>
 		{/if}
-		{#if needsTarget}
-			<label for="habit-target">{targetLabel}</label>
+		{#if kind === 'check' && period !== 'day'}
+			<label for="habit-days">Days per {period}</label>
 			<div class="row">
-				<input id="habit-target" class="target" type="text" inputmode="decimal" autocomplete="off" bind:value={targetText} />
-				{#if kind === 'amount' && unit.trim()}<span class="muted">{unit.trim()}</span>{/if}
+				<input id="habit-days" class="target" type="text" inputmode="numeric" autocomplete="off" bind:value={targetText} />
 			</div>
 		{/if}
 		{#if original && (goalChanged || kind !== original.kind)}<p class="muted note">{appliesToAll ? 'Applies to all days.' : 'The new goal counts from today on.'}</p>{/if}
@@ -219,9 +219,17 @@
 		align-items: center;
 		flex-wrap: wrap;
 	}
+	/* the goal's amount and its unit stay together (on a phone: on a line of their own) */
+	.amount {
+		display: flex;
+		gap: 0.5rem;
+		flex: 1 1 14rem;
+		min-width: 0;
+	}
 	.unit {
 		flex: 1 1 8rem;
 		min-width: 0;
+		width: 0;
 	}
 	.target {
 		width: 7rem;

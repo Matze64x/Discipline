@@ -13,7 +13,7 @@ async function addHabit(page: Page, name: string, amount = false) {
 	await dialog.getByLabel('Name').fill(name);
 	if (amount) {
 		await dialog.getByText('Amount', { exact: true }).tap();
-		await dialog.getByLabel('At least').fill('30');
+		await dialog.getByLabel('Goal', { exact: true }).fill('30');
 	}
 	await dialog.getByRole('button', { name: 'Save' }).tap();
 	await expect(dialog).toBeHidden();
