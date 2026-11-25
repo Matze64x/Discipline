@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addHabit, EMPTY_DATA, setEntry, summarizeChanges, toggleCheck, totalChanges, updateHabit, type CivilDate, type UtcSeconds } from '../../src/core';
+import { addHabit, EMPTY_DATA, setEntry, setPreferences, summarizeChanges, toggleCheck, totalChanges, updateHabit, type CivilDate, type UtcSeconds } from '../../src/core';
 
 const T = 1_800_000_000 as UtcSeconds;
 const day = (s: string) => s as CivilDate;
@@ -15,9 +15,13 @@ describe('change summaries', () => {
 		after = setEntry(after, a.id, day('2026-11-03'), null, T);
 		after = toggleCheck(after, b.id, day('2026-11-04'), T);
 		const summary = summarizeChanges(before, after);
-		expect(summary).toEqual({ habits: { added: 1, changed: 1, deleted: 0 }, entries: { added: 1, changed: 1, deleted: 1 } });
+		expect(summary).toEqual({ habits: { added: 1, changed: 1, deleted: 0 }, entries: { added: 1, changed: 1, deleted: 1 }, preferences: false });
 		expect(totalChanges(summary)).toBe(5);
 		expect(totalChanges(summarizeChanges(after, after))).toBe(0);
 		expect(summarizeChanges(null, before).entries.added).toBe(2);
+		// a changed day or week start counts as one change
+		const moved = summarizeChanges(after, setPreferences(after, { weekStart: 7 }, T));
+		expect(moved.preferences).toBe(true);
+		expect(totalChanges(moved)).toBe(1);
 	});
 });

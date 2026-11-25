@@ -1,37 +1,26 @@
 /**
- * Per-device preferences (not part of the data file). Kept in localStorage, which can be
+ * Per-device preferences (not part of the data file; the day and week start are, see
+ * `Preferences` in the core). Kept in localStorage, which can be
  * unavailable (private windows, blocked storage): then the defaults apply and changes last until
  * the page is closed. Other tabs pick up changes through the `storage` event.
  */
-import { DATE_STYLES, type DateStyle } from '../core';
-
-/** The days a week can start on: Monday or Sunday */
-export type WeekStart = 1 | 7;
+import { DATE_STYLES, DEFAULT_PREFERENCES, isDayStart, isWeekStart, type DateStyle, type Preferences } from '../core';
 
 const KEY = 'discipline-settings-v1';
 
 interface Values {
 	dateStyle: DateStyle;
-	/** When a new day starts, in minutes after midnight (e.g. 240: until 04:00 it's still yesterday) */
-	dayStart: number;
-	/** The first day of the week (for weekly goals and week views): Monday or Sunday */
-	weekStart: WeekStart;
 	/** Desktop app: the file the data is backed up to, or null for none */
 	backupPath: string | null;
 }
 
-const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', dayStart: 0, weekStart: 1, backupPath: null };
-
-/** Day starts the user can choose: midnight to 06:00, in half hours */
-export const DAY_STARTS: readonly number[] = Array.from({ length: 13 }, (_, i) => i * 30);
+const DEFAULTS: Values = { dateStyle: 'DD.MM.YYYY', backupPath: null };
 
 function load(): Values {
 	try {
 		const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Values>;
 		return {
 			dateStyle: DATE_STYLES.includes(raw.dateStyle as DateStyle) ? raw.dateStyle! : DEFAULTS.dateStyle,
-			dayStart: DAY_STARTS.includes(raw.dayStart as number) ? raw.dayStart! : DEFAULTS.dayStart,
-			weekStart: raw.weekStart === 7 ? 7 : 1,
 			backupPath: typeof raw.backupPath === 'string' && raw.backupPath !== '' ? raw.backupPath : null,
 		};
 	} catch {
@@ -53,20 +42,6 @@ class Settings {
 		this.#set({ dateStyle });
 	}
 
-	get dayStart(): number {
-		return this.#values.dayStart;
-	}
-	set dayStart(dayStart: number) {
-		this.#set({ dayStart });
-	}
-
-	get weekStart(): WeekStart {
-		return this.#values.weekStart;
-	}
-	set weekStart(weekStart: WeekStart) {
-		this.#set({ weekStart });
-	}
-
 	get backupPath(): string | null {
 		return this.#values.backupPath;
 	}
@@ -77,7 +52,9 @@ class Settings {
 	#set(changes: Partial<Values>) {
 		this.#values = { ...this.#values, ...changes };
 		try {
-			localStorage.setItem(KEY, JSON.stringify(this.#values));
+			// (keeps what isn't a value here any more, e.g. an old day start not yet moved into the data)
+			const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, unknown>;
+			localStorage.setItem(KEY, JSON.stringify({ ...stored, ...this.#values }));
 		} catch {
 			// not stored; still applies until the page is closed
 		}
@@ -85,3 +62,29 @@ class Settings {
 }
 
 export const settings = new Settings();
+
+/**
+ * The day and week start this device had while they were its own preferences (before they became
+ * part of the data, 2026-11), if not the defaults; null otherwise. `forgetOldPreferences` drops them.
+ */
+export function oldPreferences(): Pick<Preferences, 'dayStart' | 'weekStart'> | null {
+	try {
+		const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { dayStart?: unknown; weekStart?: unknown };
+		const dayStart = isDayStart(raw.dayStart) ? raw.dayStart : DEFAULT_PREFERENCES.dayStart;
+		const weekStart = isWeekStart(raw.weekStart) ? raw.weekStart : DEFAULT_PREFERENCES.weekStart;
+		return dayStart === DEFAULT_PREFERENCES.dayStart && weekStart === DEFAULT_PREFERENCES.weekStart ? null : { dayStart, weekStart };
+	} catch {
+		return null;
+	}
+}
+
+export function forgetOldPreferences(): void {
+	try {
+		const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, unknown>;
+		delete raw['dayStart'];
+		delete raw['weekStart'];
+		localStorage.setItem(KEY, JSON.stringify(raw));
+	} catch {
+		// nothing to forget
+	}
+}

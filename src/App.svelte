@@ -13,7 +13,9 @@
 	import SyncSwitch from './lib/sync/SyncSwitch.svelte';
 	import { SyncManager } from './lib/sync/manager.svelte';
 	import { PhoneSync } from './lib/sync/phone-sync.svelte';
-	import type { SyncReport } from './core';
+	import { setPreferences, type SyncReport } from './core';
+	import { clock } from './lib/clock.svelte';
+	import { forgetOldPreferences, oldPreferences } from './lib/settings.svelte';
 
 	const SECTIONS = [
 		{ id: 'today', label: 'Today', keys: 'g t' },
@@ -34,6 +36,7 @@
 			const counts = [c.added && `${c.added} added`, c.changed && `${c.changed} changed`, c.deleted && `${c.deleted} removed`].filter(Boolean);
 			return counts.length ? [`${label}: ${counts.join(', ')}.`] : [];
 		});
+		if (report.changes.preferences) lines.push('Day and week start changed.');
 		notices.info(`Synced with ${report.peer.name}. ${lines.join(' ')}`);
 	}
 	const sync = workspace.isDesktop ? new DesktopSync(workspace, reportSync) : new PhoneSync(workspace, reportSync);
@@ -46,6 +49,7 @@
 		const stop = workspace
 			.start()
 			.then(async (stopWorkspace) => {
+				await movePreferencesIntoData();
 				// syncing starts once the data is loaded
 				const stopSync = await sync.start().catch((e: unknown) => {
 					notices.error(`Syncing can’t start: ${errorMessage(e)}`);
@@ -62,6 +66,26 @@
 			});
 		return () => void stop.then((f) => f());
 	});
+
+	// "today" follows the data's day start (shared by all synced devices)
+	$effect(() => {
+		clock.dayStart = workspace.data.preferences.dayStart;
+	});
+
+	/**
+	 * The day and week start used to be this device's own preferences: if they were set and the
+	 * data has none yet, they move into the data (once; afterwards the data's apply).
+	 */
+	async function movePreferencesIntoData() {
+		const old = oldPreferences();
+		try {
+			// (checked inside the edit: a sync or another tab may have set them meanwhile)
+			if (old) await workspace.edit('Day and week start', (d, now) => (d.preferences.edited === null ? setPreferences(d, old, now) : d), { undoable: false });
+			forgetOldPreferences();
+		} catch (e) {
+			notices.error(`The day and week start couldn’t be taken over: ${errorMessage(e)}`);
+		}
+	}
 
 	// raw: a proxy would break the identity check of `candidate.from` in the workspace
 	let candidate = $state.raw<ImportCandidate | null>(null);

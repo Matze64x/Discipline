@@ -4,7 +4,7 @@
  * network. Uses the dev-only `__disciplineTest` hook (see `App.svelte`).
  */
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { waitForApp, fileAction } from './app';
+import { fileAction, openSettings, waitForApp } from './app';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/example.json', import.meta.url));
@@ -120,6 +120,13 @@ test('two devices sync additions, edits and deletions both ways, and keep their 
 	await pc.page.getByRole('button', { name: 'Today', exact: true }).click();
 	await expect(dayRow(pc.page, 'Added on the phone')).toContainText('(done)');
 	for (const page of [phone.page, pc.page]) await page.getByRole('button', { name: 'Habits', exact: true }).click();
+
+	// the week start is shared: changed on the phone, the PC counts weeks alike
+	const phoneSettings = await openSettings(phone.page);
+	await phoneSettings.getByLabel('Week starts on').selectOption('Sunday');
+	await phone.page.keyboard.press('Escape');
+	await expect((await openSettings(pc.page)).getByLabel('Week starts on')).toHaveValue('7');
+	await pc.page.keyboard.press('Escape');
 
 	// an edit on the phone reaches the PC
 	await habit(phone.page, 'Added on the phone').dblclick();

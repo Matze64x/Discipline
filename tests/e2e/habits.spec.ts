@@ -1,6 +1,6 @@
 /** Habits and the day view, operated by keyboard (the desktop way) and mouse. */
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { waitForApp } from './app';
+import { openSettings, waitForApp } from './app';
 
 test.skip(({ hasTouch }) => hasTouch === true, 'keyboard and mouse (touch: touch.spec.ts)');
 
@@ -219,4 +219,31 @@ test('the shortcut help lists the day keys', async ({ page }) => {
 	await expect(help).toContainText('Type an amount');
 	await expect(help).toContainText('Check off');
 	await expect(help).toContainText('Complete');
+});
+
+test('day and week start: part of the data; a device’s old values move over once', async ({ page }) => {
+	// before, they were this device's own preferences
+	await page.addInitScript(() => {
+		if (!sessionStorage.getItem('seeded')) localStorage.setItem('discipline-settings-v1', JSON.stringify({ dateStyle: 'DD.MM.YYYY', dayStart: 240, weekStart: 7 }));
+		sessionStorage.setItem('seeded', '1');
+	});
+	// 02:00 with the day starting at 04:00: still the 23rd
+	await open(page, new Date(2026, 10, 24, 2, 0));
+	await expect(page.getByRole('heading', { name: /Today/ })).toContainText('23.11.2026');
+	const settings = await openSettings(page);
+	await expect(settings.getByLabel('New day starts at')).toHaveValue('240');
+	await expect(settings.getByLabel('Week starts on')).toHaveValue('7');
+	// changed here, it's in the data: it stays after a reload, and the old value doesn't come back
+	await settings.getByLabel('New day starts at').selectOption('00:00');
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('heading', { name: /Today/ })).toContainText('24.11.2026');
+	// Ctrl+Z undoes it like any change
+	await keys(page, 'Control+z');
+	await expect(page.getByRole('heading', { name: /Today/ })).toContainText('23.11.2026');
+	await keys(page, 'Control+Shift+z');
+	await expect(page.getByRole('heading', { name: /Today/ })).toContainText('24.11.2026');
+	await page.reload();
+	await waitForApp(page);
+	await expect(page.getByRole('heading', { name: /Today/ })).toContainText('24.11.2026');
+	expect(await page.evaluate(() => localStorage.getItem('discipline-settings-v1'))).not.toContain('dayStart');
 });

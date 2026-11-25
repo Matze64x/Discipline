@@ -3,7 +3,8 @@
  * devices send each other when they sync.
  *
  * {
- * 	"version": 1,
+ * 	"version": 2,
+ * 	"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},
  * 	"habits": [
  * 		{"id": "…", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-24", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}
  * 	],
@@ -15,13 +16,19 @@
  * One record per line, sorted, so the same data always gives the same text (also used to compare
  * data by hash when syncing) and files diff well. The parser accepts exactly what the edit
  * operations can produce (e.g. names already cleaned), so loading never changes data by itself.
+ * Version 1 (before the preferences were part of the data) is still read: its data gets the
+ * default preferences.
  */
 import { formatTimestamp, isCivilDate, MAX_YEAR, MIN_YEAR, parseTimestamp, WEEKDAYS, type CivilDate, type UtcSeconds, type Weekday } from './dates';
 import { parseId, type Id } from './ids';
 import {
 	compareEntries,
 	compareHabits,
+	DAY_STARTS,
+	DEFAULT_PREFERENCES,
 	entryKey,
+	isDayStart,
+	isWeekStart,
 	isCleanText,
 	isColor,
 	isEntryValue,
@@ -37,9 +44,12 @@ import {
 	type Goal,
 	type Habit,
 	type HabitKind,
+	type Preferences,
 } from './model';
 
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
+/** Older versions that are still read */
+const READABLE_VERSIONS: readonly number[] = [1, FORMAT_VERSION];
 
 export interface Issue {
 	/** Location in the file, e.g. `entries[3].value` */
@@ -51,6 +61,7 @@ export type ParseResult =
 	| { readonly ok: true; readonly data: DisciplineData; readonly warnings: readonly Issue[] }
 	| { readonly ok: false; readonly errors: readonly Issue[]; readonly warnings: readonly Issue[] };
 
+const PREFERENCES_KEYS = ['dayStart', 'weekStart', 'edited'];
 const HABIT_KEYS = ['id', 'name', 'kind', 'unit', 'goals', 'color', 'position', 'archived', 'edited'];
 const GOAL_KEYS = ['from', 'period', 'days', 'target'];
 const ENTRY_KEYS = ['habit', 'date', 'value', 'edited'];
@@ -191,6 +202,22 @@ class Parser {
 		return { id, name, kind, unit, goals, color, position, archived, edited };
 	}
 
+	preferences(value: unknown, path: string): Preferences | null {
+		const object = this.object(value, path, PREFERENCES_KEYS);
+		if (!object) return null;
+		const dayStart = this.number(object, 'dayStart', path);
+		const weekStart = this.number(object, 'weekStart', path);
+		const edited = object['edited'] === null ? null : this.timestamp(object, 'edited', path);
+		if (dayStart !== null && !isDayStart(dayStart)) this.error(join(path, 'dayStart'), `Must be one of ${DAY_STARTS.join(', ')} (minutes after midnight)`);
+		if (weekStart !== null && !isWeekStart(weekStart)) this.error(join(path, 'weekStart'), 'Must be 1 (Monday) or 7 (Sunday)');
+		if (!isDayStart(dayStart) || !isWeekStart(weekStart) || (edited === null && object['edited'] !== null)) return null;
+		// (never changed: still the defaults)
+		if (edited === null && (dayStart !== DEFAULT_PREFERENCES.dayStart || weekStart !== DEFAULT_PREFERENCES.weekStart)) {
+			return this.error(join(path, 'edited'), 'Must be a timestamp: the values aren’t the defaults');
+		}
+		return { dayStart, weekStart, edited };
+	}
+
 	/** Habits must be parsed before, so references can be checked */
 	entry(value: unknown, path: string, habits: ReadonlyMap<Id, HabitKind | null>, keys: Set<string>): Entry | null {
 		const object = this.object(value, path, ENTRY_KEYS);
@@ -229,7 +256,7 @@ export function parseDiscipline(content: string): ParseResult {
 	}
 	const version = p.number(root, 'version', '');
 	if (version === null) return failed();
-	if (version !== FORMAT_VERSION) {
+	if (!READABLE_VERSIONS.includes(version)) {
 		p.error(
 			'version',
 			Number.isInteger(version) && version > FORMAT_VERSION
@@ -238,7 +265,8 @@ export function parseDiscipline(content: string): ParseResult {
 		);
 		return failed();
 	}
-	p.object(root, '', ['version', 'habits', 'entries']);
+	p.object(root, '', version === 1 ? ['version', 'habits', 'entries'] : ['version', 'preferences', 'habits', 'entries']);
+	const preferences = version === 1 ? DEFAULT_PREFERENCES : p.preferences(root['preferences'], 'preferences');
 
 	const seen = new Map<Id, HabitKind | null>();
 	const habits = (p.array(root, 'habits', '') ?? []).map((value, i) => p.habit(value, `habits[${i}]`, seen));
@@ -247,13 +275,17 @@ export function parseDiscipline(content: string): ParseResult {
 
 	if (p.errors.length > 0) return failed();
 	const valid = <T>(items: (T | null)[]): T[] => items.filter((item) => item !== null);
-	return { ok: true, data: { habits: valid(habits).sort(compareHabits), entries: valid(entries).sort(compareEntries) }, warnings: p.warnings };
+	return { ok: true, data: { preferences: preferences!, habits: valid(habits).sort(compareHabits), entries: valid(entries).sort(compareEntries) }, warnings: p.warnings };
 }
 
 // ------------------------------------------------------------------------------------- writing
 
 function goalToJson(g: DatedGoal) {
 	return g.period === 'day' ? { from: g.from, period: g.period, days: g.days, target: g.target } : { from: g.from, period: g.period, target: g.target };
+}
+
+function preferencesToJson(p: Preferences): string {
+	return line({ dayStart: p.dayStart, weekStart: p.weekStart, edited: p.edited === null ? null : formatTimestamp(p.edited) });
 }
 
 function habitToJson(h: Habit): string {
@@ -279,5 +311,5 @@ function list(lines: readonly string[]): string {
 export function serializeDiscipline(data: DisciplineData): string {
 	const habits = [...data.habits].sort(compareHabits).map(habitToJson);
 	const entries = [...data.entries].sort(compareEntries).map(entryToJson);
-	return `{\n\t"version": ${FORMAT_VERSION},\n\t"habits": ${list(habits)},\n\t"entries": ${list(entries)}\n}\n`;
+	return `{\n\t"version": ${FORMAT_VERSION},\n\t"preferences": ${preferencesToJson(data.preferences)},\n\t"habits": ${list(habits)},\n\t"entries": ${list(entries)}\n}\n`;
 }

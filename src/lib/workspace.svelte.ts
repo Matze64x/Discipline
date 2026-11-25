@@ -268,15 +268,16 @@ export class Workspace implements SyncStore {
 
 	/**
 	 * Applies an edit (a pure function from `core/edit.ts`) to the working copy and saves it.
-	 * `label` describes it for undo, e.g. 'Delete “Rent”'. Throws (and changes nothing) if the edit
-	 * is invalid.
+	 * `label` describes it for undo, e.g. 'Delete “Rent”' (`undoable` false: not offered for undo,
+	 * e.g. a change the app makes by itself). Throws (and changes nothing) if the edit is invalid.
 	 */
-	edit(label: string, change: (data: DisciplineData, now: UtcSeconds) => DisciplineData): Promise<void> {
+	edit(label: string, change: (data: DisciplineData, now: UtcSeconds) => DisciplineData, { undoable = true } = {}): Promise<void> {
 		return this.#serial(async () => {
 			const before = this.#current.working;
 			const after = change(before, nowUtcSeconds());
 			if (after === before) return;
 			await this.#replaceWorking(after);
+			if (!undoable) return;
 			this.#undo = [...this.#undo.slice(-49), { before, after, label }];
 			this.#redo = [];
 		});

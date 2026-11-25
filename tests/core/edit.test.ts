@@ -18,6 +18,7 @@ import {
 	serializeDiscipline,
 	setArchived,
 	setEntry,
+	setPreferences,
 	toDraft,
 	toggleCheck,
 	updateHabit,
@@ -292,6 +293,25 @@ describe('entries', () => {
 	it('rounds typed amounts to what an entry holds', () => {
 		expect(roundValue(1.0005)).toBe(1.001);
 		expect(roundValue(0.1 + 0.2)).toBe(0.3);
+	});
+});
+
+describe('preferences', () => {
+	it('change day and week start, stamped; no change is a no-op', () => {
+		const { data } = withHabits();
+		expect(data.preferences).toEqual({ dayStart: 0, weekStart: 1, edited: null });
+		const changed = setPreferences(data, { dayStart: 240 }, T1);
+		expect(changed.preferences).toEqual({ dayStart: 240, weekStart: 1, edited: T1 });
+		expect(setPreferences(changed, { dayStart: 240, weekStart: 1 }, T2)).toBe(changed);
+		expect(setPreferences(changed, { weekStart: 7 }, T2).preferences).toEqual({ dayStart: 240, weekStart: 7, edited: T2 });
+		// a clock behind the last change still moves `edited` on
+		expect(setPreferences(changed, { weekStart: 7 }, (T1 - 100) as UtcSeconds).preferences.edited).toBe(T1 + 1);
+	});
+
+	it('refuses values that can’t be chosen', () => {
+		const { data } = withHabits();
+		for (const dayStart of [-30, 45, 390, NaN]) expect(() => setPreferences(data, { dayStart }, T1), String(dayStart)).toThrow(EditError);
+		expect(() => setPreferences(data, { weekStart: 3 as never }, T1)).toThrow(EditError);
 	});
 });
 

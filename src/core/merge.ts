@@ -28,13 +28,18 @@
  * Habits carry one `edited` time: the later of both sides'. So with three devices, which of two
  * changes to a part wins can depend on the order of syncing (all devices still end up the same).
  *
+ * The preferences (day start, week start) merge field by field: changed on one side only -> that
+ * change; changed differently on both -> the side edited later (not reported: there is nothing to
+ * restore). Without a base, a field that differs comes from the side edited later (a value equal
+ * to the default may be a newer change back to it). Their `edited` is the later of both sides'.
+ *
  * Without a common base nothing counts as deleted: both versions are combined.
  *
  * Inputs must be valid on their own (as produced by `parseDiscipline` or `edit.ts`).
  */
 import { canonicalString, deepEqual } from './equal';
 import type { Id } from './ids';
-import { compareEntries, compareHabits, EMPTY_DATA, entryKey, type DisciplineData, type Entry, type Habit } from './model';
+import { compareEntries, compareHabits, EMPTY_DATA, entryKey, type DisciplineData, type Entry, type Habit, type Preferences } from './model';
 
 export type ConflictReason = 'changed-on-both-sides' | 'deleted-and-changed' | 'deleted-habit-in-use' | 'amounts-for-check-habit';
 
@@ -171,6 +176,21 @@ function combineEntries(_: Entry | undefined, ours: Entry, theirs: Entry): { val
 const HABITS: RecordKind<Habit> = { keys: RECORD_KEYS.habits, compareEdited: (a, b) => a.edited - b.edited, combine: combineHabits };
 const ENTRIES: RecordKind<Entry> = { keys: RECORD_KEYS.entries, compareEdited: (a, b) => a.edited - b.edited, combine: combineEntries };
 
+/** The preferences merged field by field (see the header) */
+function mergePreferences(base: Preferences | null, ours: Preferences, theirs: Preferences): Preferences {
+	// (never edited counts as the earliest)
+	const byTime = (ours.edited ?? -Infinity) - (theirs.edited ?? -Infinity);
+	const field = <K extends 'dayStart' | 'weekStart'>(key: K): Preferences[K] => {
+		const [o, t] = [ours[key], theirs[key]];
+		if (o === t) return o;
+		if (base && o === base[key]) return t;
+		if (base && t === base[key]) return o;
+		return compareVersions(Number.isNaN(byTime) ? 0 : byTime, o, t) > 0 ? o : t;
+	};
+	const edited = ours.edited === null ? theirs.edited : theirs.edited === null ? ours.edited : (Math.max(ours.edited, theirs.edited) as Preferences['edited']);
+	return { dayStart: field('dayStart'), weekStart: field('weekStart'), edited };
+}
+
 /**
  * Merges `ours` and `theirs`, which both derive from `base` (pass `null` if there is no common
  * version yet).
@@ -225,7 +245,10 @@ export function merge(base: DisciplineData | null, ours: DisciplineData, theirs:
 	}
 
 	return {
-		data: { habits: [...merged.values()].sort(compareHabits), entries: [...resultEntries.values()].sort(compareEntries) },
+		data: {
+			preferences: mergePreferences(base?.preferences ?? null, ours.preferences, theirs.preferences),
+			habits: [...merged.values()].sort(compareHabits), entries: [...resultEntries.values()].sort(compareEntries),
+		},
 		conflicts: { habits: habits.conflicts, entries: entries.conflicts },
 	};
 }

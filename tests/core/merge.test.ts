@@ -13,6 +13,7 @@ import {
 	serializeDiscipline,
 	setArchived,
 	setEntry,
+	setPreferences,
 	toggleCheck,
 	updateHabit,
 	type CivilDate,
@@ -220,6 +221,39 @@ describe('merge scenarios', () => {
 	});
 });
 
+describe('merging the preferences', () => {
+	it('takes a change from either side, field by field', () => {
+		const { base } = setup();
+		const ours = setPreferences(base, { dayStart: 240 }, T1);
+		const theirs = setPreferences(base, { weekStart: 7 }, T2);
+		for (const [a, b] of [[ours, theirs], [theirs, ours]] as const) {
+			expect(merge(base, a, b).data.preferences).toEqual({ dayStart: 240, weekStart: 7, edited: T2 });
+		}
+		expect(merge(base, ours, base).data.preferences).toEqual(ours.preferences);
+		expect(merge(base, base, ours).data.preferences).toEqual(ours.preferences);
+	});
+
+	it('changed on both sides: the later change wins, from either side', () => {
+		const { base } = setup();
+		const ours = setPreferences(base, { dayStart: 240 }, T2);
+		const theirs = setPreferences(base, { dayStart: 60 }, T1);
+		expect(merge(base, ours, theirs).data.preferences.dayStart).toBe(240);
+		expect(merge(base, theirs, ours).data.preferences.dayStart).toBe(240);
+	});
+
+	it('an import keeps the newer preferences; a file without changes keeps ours', () => {
+		const { base } = setup();
+		const changed = setPreferences(base, { weekStart: 7 }, T1);
+		expect(merge(null, base, changed).data.preferences.weekStart).toBe(7);
+		expect(merge(null, changed, base).data.preferences.weekStart).toBe(7);
+		expect(merge(null, changed, EMPTY_DATA).data.preferences).toEqual(changed.preferences);
+		// set back to the default later: an older file doesn't bring the old value back
+		const back = setPreferences(changed, { weekStart: 1 }, T2);
+		expect(merge(null, back, changed).data.preferences).toEqual(back.preferences);
+		expect(merge(null, changed, back).data.preferences).toEqual(back.preferences);
+	});
+});
+
 describe('import', () => {
 	it('adds and merges, never deletes', () => {
 		const { base, read } = setup();
@@ -361,6 +395,6 @@ describe('merge edge cases', () => {
 
 	it('refuses inconsistent input', () => {
 		expect(merge(EMPTY_DATA, EMPTY_DATA, EMPTY_DATA).data).toEqual(EMPTY_DATA);
-		expect(() => merge(EMPTY_DATA, { habits: [], entries: [{ habit: '1' as Id, date: D1, value: 1, edited: T0 }] }, EMPTY_DATA)).toThrow(/inconsistent/);
+		expect(() => merge(EMPTY_DATA, { ...EMPTY_DATA, habits: [], entries: [{ habit: '1' as Id, date: D1, value: 1, edited: T0 }] }, EMPTY_DATA)).toThrow(/inconsistent/);
 	});
 });

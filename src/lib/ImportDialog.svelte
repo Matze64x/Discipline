@@ -37,7 +37,7 @@
 	const changes = $derived.by(() => {
 		if (!candidate.ok) return [];
 		const c = candidate.plan.changes;
-		return [describe(c.habits, 'Habits'), describe(c.entries, 'Entries')].filter((x) => x !== null);
+		return [describe(c.habits, 'Habits'), describe(c.entries, 'Entries'), c.preferences ? 'Day and week start: changed' : null].filter((x) => x !== null);
 	});
 	const conflicts = $derived(candidate.ok ? conflictLines(candidate.plan.merge.conflicts, candidate.plan.next) : []);
 	const warnings = $derived(candidate.ok ? candidate.plan.warnings.map((w) => WARNINGS[w]) : []);

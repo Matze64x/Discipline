@@ -4,12 +4,13 @@ import { randomData } from './random-data';
 
 const GOAL = { from: '2026-11-01', period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 30 };
 const HABIT = { id: '42', name: 'Read', kind: 'amount', unit: 'min', goals: [GOAL], color: '#3a86ff', position: 1, archived: null, edited: '2026-11-24T20:15:00Z' };
+const PREFERENCES = { dayStart: 240, weekStart: 7, edited: '2026-11-25T10:00:00Z' };
 const ENTRY = { habit: '42', date: '2026-11-24', value: 45, edited: '2026-11-24T20:15:00Z' };
 /** Goals: `GOAL` with changes (`undefined` drops a key) */
 const goals = (...changes: object[]) => ({ goals: changes.map((c) => ({ ...GOAL, ...c })) });
 
 function file(changes: { habits?: unknown[]; entries?: unknown[]; [key: string]: unknown } = {}): string {
-	return JSON.stringify({ version: FORMAT_VERSION, habits: [HABIT], entries: [ENTRY], ...changes });
+	return JSON.stringify({ version: FORMAT_VERSION, preferences: PREFERENCES, habits: [HABIT], entries: [ENTRY], ...changes });
 }
 
 function errorsOf(text: string): string[] {
@@ -31,7 +32,8 @@ describe('format', () => {
 		expect(serializeDiscipline(data)).toBe(
 			[
 				'{',
-				'\t"version": 1,',
+				'\t"version": 2,',
+				'\t"preferences": {"dayStart": 240, "weekStart": 7, "edited": "2026-11-25T10:00:00Z"},',
 				'\t"habits": [',
 				'\t\t{"id": "42", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-01", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}',
 				'\t],',
@@ -44,8 +46,27 @@ describe('format', () => {
 		);
 	});
 
+	it('reads version 1 (no preferences yet) with the default preferences', () => {
+		const data = parsed(JSON.stringify({ version: 1, habits: [HABIT], entries: [ENTRY] }));
+		expect(data.preferences).toEqual({ dayStart: 0, weekStart: 1, edited: null });
+		expect(data.habits).toHaveLength(1);
+		expect(parseDiscipline(JSON.stringify({ version: 1, preferences: PREFERENCES, habits: [], entries: [] })).warnings).toEqual([{ path: 'preferences', message: 'Unknown key, it will be dropped on save' }]);
+	});
+
+	it('checks the preferences', () => {
+		expect(errorsOf(file({ preferences: { ...PREFERENCES, dayStart: 45 } }))).toEqual(['preferences.dayStart: Must be one of 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360 (minutes after midnight)']);
+		expect(errorsOf(file({ preferences: { ...PREFERENCES, weekStart: 2 } }))).toEqual(['preferences.weekStart: Must be 1 (Monday) or 7 (Sunday)']);
+		expect(errorsOf(file({ preferences: { ...PREFERENCES, edited: 'yesterday' } }))[0]).toMatch(/^preferences\.edited: Invalid timestamp/);
+		expect(errorsOf(file({ preferences: undefined }))).toEqual(['preferences: Must be an object']);
+		expect(parsed(file({ preferences: { dayStart: 0, weekStart: 1, edited: null } })).preferences.edited).toBeNull();
+		// never changed, but not the defaults: no edit makes that
+		expect(errorsOf(file({ preferences: { ...PREFERENCES, edited: null } }))[0]).toMatch(/^preferences\.edited: Must be a timestamp/);
+		// (-0 written as text: JSON.stringify writes 0)
+		expect(errorsOf(file().replace('"dayStart":240', '"dayStart":-0'))[0]).toMatch(/^preferences\.dayStart: Must be one of/);
+	});
+
 	it('writes empty data', () => {
-		expect(serializeDiscipline(EMPTY_DATA)).toBe('{\n\t"version": 1,\n\t"habits": [],\n\t"entries": []\n}\n');
+		expect(serializeDiscipline(EMPTY_DATA)).toBe('{\n\t"version": 2,\n\t"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},\n\t"habits": [],\n\t"entries": []\n}\n');
 		expect(parsed(serializeDiscipline(EMPTY_DATA))).toEqual(EMPTY_DATA);
 	});
 
@@ -61,7 +82,7 @@ describe('format', () => {
 
 	it('writes the same text regardless of record order', () => {
 		const data = randomData(7, 3);
-		const shuffled = { habits: [...data.habits].reverse(), entries: [...data.entries].reverse() };
+		const shuffled = { ...data, habits: [...data.habits].reverse(), entries: [...data.entries].reverse() };
 		expect(serializeDiscipline(shuffled)).toBe(serializeDiscipline(data));
 	});
 
@@ -71,7 +92,7 @@ describe('format', () => {
 		expect(data.habits[0]!.name).toBe(name);
 		expect(parsed(serializeDiscipline(data)).habits[0]!.name).toBe(name);
 		// one record per line: line breaks in text are escaped
-		expect(serializeDiscipline(data).split('\n')).toHaveLength(10);
+		expect(serializeDiscipline(data).split('\n')).toHaveLength(11);
 	});
 
 	it('sorts what it reads', () => {
@@ -87,7 +108,7 @@ describe('format', () => {
 	});
 
 	it('names a newer format', () => {
-		expect(errorsOf(file({ version: 2 }))[0]).toMatch(/newer version of Discipline/);
+		expect(errorsOf(file({ version: 3 }))[0]).toMatch(/newer version of Discipline/);
 		expect(errorsOf(file({ version: 0 }))[0]).toMatch(/Unsupported version 0/);
 		expect(errorsOf(file({ version: '1' }))).toEqual(['version: Must be a number']);
 	});

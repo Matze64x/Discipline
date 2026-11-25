@@ -16,7 +16,10 @@ export interface ChangeCounts {
 	readonly deleted: number;
 }
 
-export type ChangeSummary = { readonly [K in keyof typeof RECORD_KEYS]: ChangeCounts };
+export type ChangeSummary = { readonly [K in keyof typeof RECORD_KEYS]: ChangeCounts } & {
+	/** Whether the day or week start changed */
+	readonly preferences: boolean;
+};
 
 const KINDS = Object.keys(RECORD_KEYS) as (keyof typeof RECORD_KEYS)[];
 
@@ -36,11 +39,12 @@ export function summarizeChanges(before: DisciplineData | null, after: Disciplin
 		changed: [...am].filter(([k, r]) => bm.has(k) && !deepEqual(bm.get(k), r)).length,
 		deleted: [...bm.keys()].filter((k) => !am.has(k)).length,
 	});
-	return { habits: count(b.habits, a.habits), entries: count(b.entries, a.entries) };
+	const [bp, ap] = [(before ?? EMPTY_DATA).preferences, after.preferences];
+	return { habits: count(b.habits, a.habits), entries: count(b.entries, a.entries), preferences: bp.dayStart !== ap.dayStart || bp.weekStart !== ap.weekStart };
 }
 
 export function totalChanges(summary: ChangeSummary): number {
-	return KINDS.reduce((sum, kind) => sum + summary[kind].added + summary[kind].changed + summary[kind].deleted, 0);
+	return KINDS.reduce((sum, kind) => sum + summary[kind].added + summary[kind].changed + summary[kind].deleted, 0) + (summary.preferences ? 1 : 0);
 }
 
 export type ImportWarning =

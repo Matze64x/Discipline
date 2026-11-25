@@ -18,7 +18,9 @@ import {
 	compareHabits,
 	goalOf,
 	isColor,
+	isDayStart,
 	isEntryValue,
+	isWeekStart,
 	isPosition,
 	isValidGoal,
 	MAX_VALUE,
@@ -30,6 +32,7 @@ import {
 	type Goal,
 	type Habit,
 	type HabitKind,
+	type Preferences,
 } from './model';
 
 /** What the user edits of a habit: its settings, the latest goal and the day it starts. */
@@ -256,4 +259,16 @@ export function parseValueInput(text: string): number | null {
 	if (!/^(\d+([.,]\d*)?|[.,]\d+)$/.test(t)) return null;
 	const value = roundValue(Number(t.replace(',', '.')));
 	return isEntryValue(value) ? value : null;
+}
+
+/** Changes how days and weeks are counted (for all synced devices) */
+export function setPreferences(data: DisciplineData, changes: Partial<Pick<Preferences, 'dayStart' | 'weekStart'>>, now: UtcSeconds): DisciplineData {
+	checkNow(now);
+	const old = data.preferences;
+	const dayStart = changes.dayStart ?? old.dayStart;
+	const weekStart = changes.weekStart ?? old.weekStart;
+	if (!isDayStart(dayStart)) throw new EditError(`Invalid day start ${dayStart}`);
+	if (!isWeekStart(weekStart)) throw new EditError(`Invalid week start ${weekStart}`);
+	if (dayStart === old.dayStart && weekStart === old.weekStart) return data;
+	return { ...data, preferences: { dayStart, weekStart, edited: stamp(old.edited === null ? undefined : { edited: old.edited }, now) } };
 }

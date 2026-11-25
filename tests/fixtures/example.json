@@ -1,5 +1,6 @@
 {
-	"version": 1,
+	"version": 2,
+	"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},
 	"habits": [
 		{"id": "1001", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-10-01", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 20}, {"from": "2026-11-01", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-01T08:00:00Z"},
 		{"id": "1002", "name": "Run", "kind": "check", "unit": "", "goals": [{"from": "2026-10-01", "period": "week", "target": 3}], "color": "#ff006e", "position": 2, "archived": null, "edited": "2026-10-01T08:00:00Z"},

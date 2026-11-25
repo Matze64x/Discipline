@@ -2,6 +2,9 @@
 import {
 	addDays,
 	addHabit,
+	DAY_STARTS,
+	DEFAULT_PREFERENCES,
+	setPreferences,
 	cleanText,
 	compareEntries,
 	compareHabits,
@@ -127,7 +130,9 @@ export function randomData(seed: number, size = 1): DisciplineData {
 			entries.set(`${e.habit}/${e.date}`, e);
 		}
 	}
-	return { habits: habits.sort(compareHabits), entries: [...entries.values()].sort(compareEntries) };
+	// (drawn last, so the habits and entries of a seed stay as they were before preferences existed)
+	const preferences = g.chance(0.5) ? DEFAULT_PREFERENCES : { dayStart: g.pick(DAY_STARTS), weekStart: g.pick([1, 7] as const), edited: g.time() };
+	return { preferences, habits: habits.sort(compareHabits), entries: [...entries.values()].sort(compareEntries) };
 }
 
 /**
@@ -142,7 +147,7 @@ export function randomEdit(data: DisciplineData, seed: number, count = 8, check?
 	const day = () => (dense ? addDays('2026-11-20' as CivilDate, g.int(0, 3)) : g.date());
 	for (let i = 0; i < count; i++) {
 		const habit = data.habits.length > 0 ? g.pick(data.habits) : undefined;
-		const action = habit ? g.int(0, 9) : 0;
+		const action = habit ? g.int(0, 10) : 0;
 		let name = 'add';
 		try {
 			if (action === 0 || !habit) {
@@ -175,6 +180,11 @@ export function randomEdit(data: DisciplineData, seed: number, count = 8, check?
 				name = 'move';
 				const before = g.chance(0.2) ? null : g.pick(data.habits).id;
 				if (before !== habit.id) data = moveHabit(data, habit.id, before, now);
+			} else if (action === 10) {
+				name = 'preferences';
+				// (dense: few values, so two sides often change the same field differently, or alike)
+				const dayStart = dense ? g.pick([0, 240]) : g.pick(DAY_STARTS);
+				data = setPreferences(data, g.chance(0.5) ? { dayStart } : { weekStart: g.pick([1, 7] as const) }, now);
 			} else if (g.chance(0.3)) {
 				name = 'delete';
 				data = deleteHabit(data, habit.id);

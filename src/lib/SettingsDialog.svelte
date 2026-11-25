@@ -3,10 +3,10 @@
 	the data file) and the devices it syncs with. Changes apply at once.
 -->
 <script lang="ts">
-	import { DATE_STYLES, formatDateAs, today, type DateStyle } from '../core';
+	import { DATE_STYLES, DAY_STARTS, formatDateAs, setPreferences, today, type DateStyle, type Preferences } from '../core';
 	import { attempt } from './attempt';
 	import { chooseFileToSave, dataLocation, isDesktop, suggestedBackupPath } from './desktop';
-	import { DAY_STARTS, settings } from './settings.svelte';
+	import { settings } from './settings.svelte';
 	import { displayKeys } from './shortcuts.svelte';
 	import type { DesktopSync } from './sync/desktop-sync.svelte';
 	import Devices from './sync/Devices.svelte';
@@ -40,6 +40,16 @@
 	/** Why choosing the backup file failed (shown here: a notice would be behind the dialog) */
 	let failure = $state<string | null>(null);
 
+	/** Day and week start are part of the data (so every synced device counts days alike) */
+	let preferenceFailure = $state<string | null>(null);
+	function setPreference(changes: Partial<Pick<Preferences, 'dayStart' | 'weekStart'>>) {
+		preferenceFailure = null;
+		void attempt(
+			(text) => (preferenceFailure = text),
+			() => workspace.edit(changes.dayStart !== undefined ? 'Change the day start' : 'Change the week start', (d, now) => setPreferences(d, changes, now)),
+		);
+	}
+
 	async function chooseBackup() {
 		failure = null;
 		await attempt(
@@ -54,24 +64,26 @@
 
 <Modal title="Settings" {onclose}>
 	<div class="settings">
+		<label for="day-start">New day starts at</label>
+		<select id="day-start" disabled={busy} value={workspace.data.preferences.dayStart} onchange={(e) => setPreference({ dayStart: Number(e.currentTarget.value) })}>
+			{#each DAY_STARTS as minutes (minutes)}
+				<option value={minutes}>{time(minutes)}</option>
+			{/each}
+		</select>
+		<label for="week-start">Week starts on</label>
+		<select id="week-start" disabled={busy} value={workspace.data.preferences.weekStart} onchange={(e) => setPreference({ weekStart: e.currentTarget.value === '7' ? 7 : 1 })}>
+			<option value={1}>Monday</option>
+			<option value={7}>Sunday</option>
+		</select>
+		<p class="muted note">For all synced devices.</p>
+		{#if preferenceFailure}<p class="error" role="alert">{preferenceFailure}</p>{/if}
 		<label for="date-style">Date format</label>
 		<select id="date-style" value={settings.dateStyle} onchange={(e) => (settings.dateStyle = e.currentTarget.value as DateStyle)}>
 			{#each DATE_STYLES as style (style)}
 				<option value={style}>{style} ({formatDateAs(sample, style)})</option>
 			{/each}
 		</select>
-		<label for="day-start">New day starts at</label>
-		<select id="day-start" value={settings.dayStart} onchange={(e) => (settings.dayStart = Number(e.currentTarget.value))}>
-			{#each DAY_STARTS as minutes (minutes)}
-				<option value={minutes}>{time(minutes)}</option>
-			{/each}
-		</select>
-		<label for="week-start">Week starts on</label>
-		<select id="week-start" value={settings.weekStart} onchange={(e) => (settings.weekStart = e.currentTarget.value === '7' ? 7 : 1)}>
-			<option value={1}>Monday</option>
-			<option value={7}>Sunday</option>
-		</select>
-		<p class="muted">These settings apply to this device only.</p>
+		<p class="muted note">This device only.</p>
 		<hr />
 		<Devices {sync} />
 		<hr />
@@ -126,6 +138,9 @@
 	.muted {
 		font-size: 0.85rem;
 		margin: 0.5rem 0 0;
+	}
+	.note {
+		margin: 0 0 0.5rem;
 	}
 	h3 {
 		margin: 0;

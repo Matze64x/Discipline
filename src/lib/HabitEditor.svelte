@@ -9,7 +9,6 @@
 	import { clock } from './clock.svelte';
 	import { formatValue, weekdayName } from './display';
 	import { unusedColor } from './palette';
-	import { settings } from './settings.svelte';
 	import ColorPicker from './ui/ColorPicker.svelte';
 	import DateInput from './ui/DateInput.svelte';
 	import Modal from './ui/Modal.svelte';
@@ -101,7 +100,7 @@
 	const appliesToAll = $derived(original !== null && (kind !== original.kind || (start !== null && start >= clock.today)));
 
 	/** The weekdays in the order of the user's week */
-	const weekdays = $derived(settings.weekStart === 7 ? ([7, 1, 2, 3, 4, 5, 6] as Weekday[]) : WEEKDAYS);
+	const weekdays = $derived(workspace.data.preferences.weekStart === 7 ? ([7, 1, 2, 3, 4, 5, 6] as Weekday[]) : WEEKDAYS);
 
 	function toggleDay(day: Weekday) {
 		days = days.includes(day) ? days.filter((d) => d !== day) : [...days, day].sort((a, b) => a - b);

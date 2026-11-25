@@ -14,7 +14,6 @@
 	import { clock } from './clock.svelte';
 	import { describeProgress, formatDate, formatValue, formatWeekday } from './display';
 	import { showError } from './notices.svelte';
-	import { settings } from './settings.svelte';
 	import { shortcuts } from './shortcuts.svelte';
 	import SelectableList from './ui/SelectableList.svelte';
 	import type { Workspace } from './workspace.svelte';
@@ -40,7 +39,7 @@
 	const rows = $derived(
 		workspace.data.habits.flatMap((habit): Row[] => {
 			if (!isActiveOn(habit, date)) return [];
-			const progress = progressOn(workspace.data, habit, date, settings.weekStart);
+			const progress = progressOn(workspace.data, habit, date, workspace.data.preferences.weekStart);
 			return progress ? [{ habit, progress, value: entryOn(workspace.data, habit.id, date)?.value ?? null }] : [];
 		}),
 	);

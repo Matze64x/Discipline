@@ -59,14 +59,44 @@ export interface Entry {
 	readonly edited: UtcSeconds;
 }
 
+/** The days a week can start on: Monday or Sunday */
+export type WeekStart = 1 | 7;
+
+/** Day starts that can be chosen: midnight to 06:00, in half hours (minutes after midnight) */
+export const DAY_STARTS: readonly number[] = Object.freeze(Array.from({ length: 13 }, (_, i) => i * 30));
+
+/**
+ * How days and weeks are counted. Part of the data (so all synced devices count alike), not of
+ * a device's own preferences.
+ */
+export interface Preferences {
+	/** When a new day starts, in minutes after midnight (one of `DAY_STARTS`; 240: until 04:00 it's still yesterday) */
+	readonly dayStart: number;
+	/** The first day of the week (for weekly goals and week views) */
+	readonly weekStart: WeekStart;
+	/** The last change; null while never changed (the defaults) */
+	readonly edited: UtcSeconds | null;
+}
+
+export const DEFAULT_PREFERENCES: Preferences = Object.freeze({ dayStart: 0, weekStart: 1, edited: null });
+
+export function isDayStart(value: unknown): value is number {
+	return typeof value === 'number' && DAY_STARTS.includes(value) && !Object.is(value, -0);
+}
+
+export function isWeekStart(value: unknown): value is WeekStart {
+	return value === 1 || value === 7;
+}
+
 export interface DisciplineData {
+	readonly preferences: Preferences;
 	/** Sorted by `compareHabits` */
 	readonly habits: readonly Habit[];
 	/** Sorted by `compareEntries`; every entry's habit exists */
 	readonly entries: readonly Entry[];
 }
 
-export const EMPTY_DATA: DisciplineData = Object.freeze({ habits: Object.freeze([]), entries: Object.freeze([]) });
+export const EMPTY_DATA: DisciplineData = Object.freeze({ preferences: DEFAULT_PREFERENCES, habits: Object.freeze([]), entries: Object.freeze([]) });
 
 /** The largest value an entry or a target can have */
 export const MAX_VALUE = 1_000_000_000;
