@@ -63,7 +63,11 @@ test('manual updates: a new version waits until Update, then takes over', async 
 	const settings = await openSettings(page);
 	await settings.getByText('Manual', { exact: true }).click();
 	await publishNext(page);
-	await settings.getByRole('button', { name: 'Check for updates' }).click();
+	// (the app may notice the new version by itself first: the button then says Update)
+	await settings
+		.getByRole('button', { name: 'Check for updates' })
+		.click({ timeout: 5000 })
+		.catch(() => undefined);
 	await expect(settings).toContainText('New version available.');
 	await page.keyboard.press('Escape');
 	await expect(updateNotice(page)).toBeVisible();

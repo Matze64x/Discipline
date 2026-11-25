@@ -352,3 +352,13 @@ test('the settings close with the × at their top', async ({ page }) => {
 	await settings.getByRole('button', { name: 'Close' }).click();
 	await expect(settings).toBeHidden();
 });
+
+test('a week’s dots stay together, evenly spaced (today’s once jumped to the right on wide screens)', async ({ page }) => {
+	// a Wednesday: days before today, today, days to come
+	await open(page, new Date(2026, 10, 25, 20, 0));
+	await addHabit(page, 'Meditate');
+	await keys(page, 'g', 't');
+	const lefts = await dayRow(page, 'Meditate').locator('.dot').evaluateAll((dots) => dots.map((d) => d.getBoundingClientRect().left));
+	expect(lefts).toHaveLength(7);
+	expect(new Set(lefts.slice(1).map((x, i) => Math.round(x - lefts[i]!))).size).toBe(1);
+});

@@ -207,7 +207,7 @@
 	<button class="nav" aria-label={settings.showMonth ? 'The month before' : 'The week before'} title="Shift+←" onclick={() => page(-1)}>‹</button>
 	<h2>{settings.showMonth ? formatMonth(date, { month: 'short', year: 'numeric' }) : weekRange}</h2>
 	<button class="nav" aria-label={settings.showMonth ? 'The month after' : 'The week after'} title="Shift+→" disabled={isToday} onclick={() => page(1)}>›</button>
-	<button class="today" title="t" disabled={isToday} onclick={goToday}>Today</button>
+	<button class="go-today" title="t" disabled={isToday} onclick={goToday}>Today</button>
 	<button class="month" aria-label="Month" aria-pressed={settings.showMonth} title="Month (m)" onclick={toggleMonth}>
 		<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
 	</button>
@@ -374,7 +374,7 @@
 		font-size: 1.3rem;
 		line-height: 1;
 	}
-	.today {
+	.go-today {
 		margin-left: auto;
 	}
 	.toolbar button {
