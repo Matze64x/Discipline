@@ -2,8 +2,8 @@
  * Horizontal swipes on an element (touch and pen; a mouse drags nothing): `go(1)` for a swipe to
  * the left (forward: what comes after), `go(-1)` to the right, if `can` allows that direction.
  * While the finger moves, the element follows it a little (not with reduced motion); a click right
- * after a swipe (some browsers send one) isn't a tap. Vertical moves and pinch-zoom stay the
- * browser's (`touch-action`).
+ * after a swipe (some browsers send one) isn't a tap. Vertical moves stay the browser's
+ * (`touch-action`; the app has no zoom).
  * Use: `<div use:swipe={{ go: page, can: (by) => … }}>`. Every swipe needs a button that does the same.
  */
 const DISTANCE = 50;
@@ -26,7 +26,7 @@ export function swipe(node: HTMLElement, options: Swipe) {
 	let swipedAt = -Infinity;
 	const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const can = (by: -1 | 1) => current.can?.(by) ?? true;
-	node.style.touchAction = 'pan-y pinch-zoom';
+	node.style.touchAction = 'pan-y';
 
 	function move(x: number) {
 		node.style.transition = '';
