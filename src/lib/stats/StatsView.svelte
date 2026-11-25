@@ -95,6 +95,10 @@
 	$effect(() => {
 		if (active && !untrack(() => openId)) list?.focus();
 	});
+	// a tab comes back fresh (user 2026-11-25): the overview, not the habit opened last
+	$effect(() => {
+		if (!active) untrack(() => (openId = null));
+	});
 	function back() {
 		openId = null;
 		list?.focus();
@@ -136,6 +140,7 @@
 		group="Stats"
 		itemName="habit"
 		onopen={show}
+		showSelection={false}
 		cards
 	>
 		{#snippet row(h)}

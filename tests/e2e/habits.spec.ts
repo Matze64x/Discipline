@@ -176,8 +176,7 @@ test('a new goal counts from today; earlier days keep theirs, and say so', async
 	// a week later, the goal goes up
 	await open(page);
 	await keys(page, 'g', 'h');
-	await habitList(page).focus();
-	await keys(page, 'Home', 'Enter');
+	await habitList(page).getByText('Read', { exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Edit habit' });
 	await dialog.getByLabel('Goal', { exact: true }).fill('45');
 	await expect(dialog).toContainText('The new goal counts from today on.');
@@ -191,20 +190,24 @@ test('a new goal counts from today; earlier days keep theirs, and say so', async
 	await expect(dayRow(page, 'Run')).toContainText('0 / 3');
 });
 
-test('reorder, archive and delete (with undo)', async ({ page }) => {
+test('reorder, archive and delete (with undo), by clicks', async ({ page }) => {
 	await open(page);
 	for (const name of ['A', 'B', 'C']) await addHabit(page, name);
 	const names = () => habitList(page).locator('.name').allTextContents();
-	await habitList(page).focus();
-	await keys(page, 'Home', 'Alt+ArrowDown');
+	await page.getByRole('button', { name: 'Reorder' }).click();
+	await page.getByRole('button', { name: 'Move “A” down' }).click();
 	await expect.poll(names).toEqual(['B', 'A', 'C']);
-	await keys(page, 'Alt+ArrowDown');
+	await page.getByRole('button', { name: 'Move “A” down' }).click();
 	await expect.poll(names).toEqual(['B', 'C', 'A']);
-	await keys(page, 'Alt+ArrowUp');
+	await page.getByRole('button', { name: 'Move “A” up' }).click();
 	await expect.poll(names).toEqual(['B', 'A', 'C']);
+	// leaving the tab ends reordering
+	await keys(page, 'g', 't', 'g', 'h');
+	await expect(page.getByRole('button', { name: 'Reorder' })).toBeVisible();
 
 	// archived: listed last; still counts today, not from tomorrow on
-	await keys(page, 'a');
+	await habitList(page).getByText('A', { exact: true }).click();
+	await page.getByRole('dialog', { name: 'Edit habit' }).getByRole('button', { name: 'Archive' }).click();
 	await expect.poll(names).toEqual(['B', 'C', 'A']);
 	await expect(habitList(page).getByRole('option').filter({ has: page.locator('.name').getByText('A', { exact: true }) })).toContainText('Archived');
 	await keys(page, 'g', 't');
@@ -214,8 +217,8 @@ test('reorder, archive and delete (with undo)', async ({ page }) => {
 	await expect(dayRow(page, 'A')).toHaveCount(0);
 
 	await keys(page, 'g', 'h');
-	await habitList(page).focus();
-	await keys(page, 'Home', 'Delete');
+	await habitList(page).getByText('B', { exact: true }).click();
+	await page.getByRole('dialog', { name: 'Edit habit' }).getByRole('button', { name: 'Delete' }).click();
 	await expect.poll(names).toEqual(['C', 'A']);
 	await page.getByRole('button', { name: /^Undo/ }).click();
 	await expect.poll(names).toEqual(['B', 'C', 'A']);
@@ -385,5 +388,12 @@ test('a week’s dots stay together, evenly spaced (today’s once jumped to the
 	await expect(dayRow(page, 'Meditate')).not.toContainText('(its days shown above)');
 	await expect(page.getByRole('dialog')).toBeHidden();
 	await keys(page, 'f', 'Escape');
+	await expect(dayRow(page, 'Meditate')).not.toContainText('(its days shown above)');
+
+	// a tab comes back fresh: today, all habits
+	await keys(page, 'f', 'ArrowLeft');
+	await expect(shownDay(page)).toHaveAccessibleName(/^Tue 24\.11\./);
+	await keys(page, 'g', 'h', 'g', 't');
+	await expect(shownDay(page)).toHaveAccessibleName(/^Wed 25\.11\./);
 	await expect(dayRow(page, 'Meditate')).not.toContainText('(its days shown above)');
 });

@@ -52,4 +52,12 @@ test('a habit’s details: tiles, calendar, chart; back with the button or Escap
 	await page.keyboard.press('Escape');
 	await expect(list).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Run' })).toBeHidden();
+
+	// a tab comes back fresh: the list, not the habit opened last
+	await list.getByRole('option').filter({ hasText: 'Run' }).click();
+	await expect(page.getByRole('heading', { name: 'Run' })).toBeVisible();
+	await page.getByRole('button', { name: 'Today', exact: true }).click();
+	await page.getByRole('button', { name: 'Stats', exact: true }).click();
+	await expect(list).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Run' })).toBeHidden();
 });

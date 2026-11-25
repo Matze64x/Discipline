@@ -1,7 +1,8 @@
 <!--
-	All habits: add (n), edit (Enter, a tap), reorder (Alt+↑/↓, or Reorder: ↑ ↓ on every row, a tap
-	then opens nothing, so the new order shows in place), archive (a) and delete (Delete, with undo).
-	Active habits first, in their order; archived ones after them.
+	All habits, as cards: add (New, n), edit (a tap; archive and delete are in the editor, delete
+	with undo), reorder (Reorder: ↑ ↓ on every card, a tap then opens nothing, so the new order
+	shows in place). Active habits first, in their order; archived ones after them. Touch first
+	(user 2026-11-25): no keys that act on a selected row, and no selection shown.
 -->
 <script lang="ts">
 	import { addDays, deleteHabit, latestGoal, moveHabit, setArchived, type Habit, type Id } from '../core';
@@ -22,11 +23,9 @@
 
 	let selectedId = $state<Id | null>(null);
 	const selectedIndex = $derived(habits.findIndex((h) => h.id === selectedId));
-	const selected = $derived(habits[selectedIndex]);
 	/** The dialog: a new habit (null) or the habit edited; undefined: closed */
 	let editing = $state.raw<Habit | null | undefined>(undefined);
 	let list: SelectableList<Habit, Id>;
-	let listElement = $state<HTMLElement>();
 
 	/** Opens the editor for a new habit (also from other views) */
 	export function openNew() {
@@ -92,19 +91,12 @@
 		await attempt(showError, () => workspace.edit(`Move “${h.name}”`, (d, now) => moveHabit(d, h.id, before, now)));
 	}
 
-	$effect(() =>
-		shortcuts.add([
-			{ keys: ['n'], description: 'New habit', group: 'Habits', when: () => active, run: openNew },
-			// these act on the selection, so only while the list (not a button elsewhere) has the focus
-			...[
-				{ keys: ['Enter', 'e'], description: 'Edit the selected habit', run: () => (editing = selected) },
-				{ keys: ['Alt+ArrowUp'], description: 'Move it up', repeat: true, run: () => void move(selected, -1) },
-				{ keys: ['Alt+ArrowDown'], description: 'Move it down', repeat: true, run: () => void move(selected, 1) },
-				{ keys: ['a'], description: 'Archive it, or make it active again', run: () => void toggleArchived(selected) },
-				{ keys: ['Delete', 'Backspace'], description: 'Delete it', run: () => void remove(selected) },
-			].map((s) => ({ ...s, group: 'Habits', focusIn: () => listElement, visible: () => active, when: () => active && !!selected })),
-		]),
-	);
+	$effect(() => shortcuts.add([{ keys: ['n'], description: 'New habit', group: 'Habits', when: () => active, run: openNew }]));
+
+	// a tab comes back fresh (user 2026-11-25): not reordering
+	$effect(() => {
+		if (!active) reordering = false;
+	});
 </script>
 
 <div class="toolbar">
@@ -118,7 +110,6 @@
 <SelectableList
 	bind:this={list}
 	bind:selected={selectedId}
-	bind:element={listElement}
 	items={habits}
 	key={(h) => h.id}
 	label="Habits"
@@ -126,6 +117,8 @@
 	group="Habits"
 	itemName="habit"
 	onopen={(h) => !reordering && (editing = h)}
+	showSelection={false}
+	cards
 >
 	{#snippet row(h)}
 		<div class="row" class:archived={h.archived !== null}>
@@ -205,11 +198,16 @@
 		height: max(2.4rem, var(--tap));
 		padding: 0;
 	}
+	/* a card per habit, as on Today */
 	.row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.6rem 0.75rem;
+		min-height: 3.5rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
 	}
 	.archived {
 		opacity: 0.6;

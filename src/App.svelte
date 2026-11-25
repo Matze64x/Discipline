@@ -26,6 +26,13 @@
 	] as const;
 	let section = $state<(typeof SECTIONS)[number]['id']>('today');
 
+	/** Shows a tab, from its top (each tab resets itself when it's left) */
+	function go(id: typeof section) {
+		if (id === section) return;
+		section = id;
+		window.scrollTo(0, 0);
+	}
+
 	const workspace = new Workspace();
 
 	/** What a sync brought in, e.g. "Synced with Desktop. Entries: 3 added, 1 changed." */
@@ -143,7 +150,7 @@
 			{ keys: ['Mod+z'], description: 'Undo the last change', group: 'General', when: () => !busy, run: undo },
 			{ keys: ['Mod+Shift+z', 'Mod+y'], description: 'Redo', group: 'General', when: () => !busy, run: redo },
 			{ keys: ['Mod+,'], description: 'Settings', group: 'General', inFields: true, run: () => (settingsOpen = true) },
-			...SECTIONS.map((s) => ({ keys: [s.keys], description: `Go to ${s.label.toLowerCase()}`, group: 'General', run: () => (section = s.id) })),
+			...SECTIONS.map((s) => ({ keys: [s.keys], description: `Go to ${s.label.toLowerCase()}`, group: 'General', run: () => go(s.id) })),
 			{ keys: ['Mod+o'], description: 'Import a file', group: 'File', inFields: true, when: () => !busy, run: importFile },
 			{ keys: ['Mod+s'], description: 'Export the file', group: 'File', inFields: true, when: () => !busy, run: exportFile },
 		]),
@@ -225,7 +232,7 @@
 	</div>
 	<nav aria-label="Sections">
 		{#each SECTIONS as s (s.id)}
-			<button class="tab" aria-current={section === s.id ? 'page' : undefined} title={displayKeys(s.keys)} onclick={() => (section = s.id)}
+			<button class="tab" aria-current={section === s.id ? 'page' : undefined} title={displayKeys(s.keys)} onclick={() => go(s.id)}
 				>{s.label}</button
 			>
 		{/each}

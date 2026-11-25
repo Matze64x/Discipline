@@ -157,6 +157,14 @@
 		show(addDays(target, Math.min(wanted, Number(addDays(addMonths(target, 1), -1).slice(8))) - 1), true);
 	}
 
+	// a tab comes back fresh (user 2026-11-25): today, all habits (the month view is a setting)
+	$effect(() => {
+		if (active) return;
+		chosen = null;
+		monthDay = 0;
+		focusedId = null;
+	});
+
 	function toggleMonth() {
 		settings.showMonth = !settings.showMonth;
 		list.focus();
