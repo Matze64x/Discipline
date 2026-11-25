@@ -78,8 +78,12 @@ button {
 	cursor: pointer;
 }
 
-button:hover:not(:disabled) {
-	border-color: var(--accent);
+/* (only where a pointer really hovers: a phone keeps a tapped button "hovered", lit up, until the
+   next tap elsewhere) */
+@media (hover: hover) {
+	button:hover:not(:disabled) {
+		border-color: var(--accent);
+	}
 }
 
 button.primary {

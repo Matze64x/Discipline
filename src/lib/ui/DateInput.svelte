@@ -159,8 +159,10 @@
 		/* iOS draws a date field at its own width, ignoring the CSS one: keep it inside the button */
 		overflow: hidden;
 	}
-	.calendar:hover {
-		border-color: var(--accent);
+	@media (hover: hover) {
+		.calendar:hover {
+			border-color: var(--accent);
+		}
 	}
 	svg {
 		width: 1.2rem;

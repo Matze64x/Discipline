@@ -63,6 +63,18 @@ test('add habits, check off and enter amounts by taps', async ({ page }) => {
 	// the buttons: +1, add an amount, complete
 	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).tap();
 	await expect(dayRow(page, 'Read')).toContainText('1 / 30');
+	// a tapped button doesn't stay lit up (phones keep it "hovered" until the next tap elsewhere)
+	const addOne = dayRow(page, 'Read').getByRole('button', { name: 'Add 1' });
+	const border = () => addOne.evaluate((b) => getComputedStyle(b).borderColor);
+	const accent = await page.evaluate(() => {
+		const probe = document.body.appendChild(document.createElement('div'));
+		probe.style.borderColor = 'var(--accent)';
+		probe.style.borderStyle = 'solid';
+		const color = getComputedStyle(probe).borderColor;
+		probe.remove();
+		return color;
+	});
+	expect(await border()).not.toBe(accent);
 	await dayRow(page, 'Read').getByRole('button', { name: 'Add an amount' }).tap();
 	amount = page.getByRole('dialog', { name: /Read/ });
 	await amount.getByLabel('Add').fill('4');

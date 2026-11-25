@@ -414,9 +414,11 @@
 		border: 1px solid var(--control-border);
 		padding: 0;
 	}
-	.tools .tab.icon:hover {
-		border-color: var(--accent);
-		color: var(--text);
+	@media (hover: hover) {
+		.tools .tab.icon:hover {
+			border-color: var(--accent);
+			color: var(--text);
+		}
 	}
 	.tab svg {
 		width: 1.15rem;
