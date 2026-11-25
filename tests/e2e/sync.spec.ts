@@ -4,6 +4,7 @@
  * network. Uses the dev-only `__disciplineTest` hook (see `App.svelte`).
  */
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { waitForApp, fileAction } from './app';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/example.json', import.meta.url));
@@ -17,7 +18,7 @@ interface Device {
 async function openDevice(context: BrowserContext, id: string, kind: 'pc' | 'phone'): Promise<Device> {
 	const page = await context.newPage();
 	await page.goto('/');
-	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await waitForApp(page);
 	await page.getByRole('button', { name: 'Habits', exact: true }).click();
 	await expect(habitList(page)).toContainText('No habits yet.');
 	return { page, id, kind };
@@ -79,7 +80,7 @@ async function connect(a: Device, b: Device) {
 
 async function importFixture(page: Page) {
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
+	await fileAction(page, 'Import');
 	await (await chooser).setFiles(FIXTURE);
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
 	await expect(habits(page)).toHaveCount(3);

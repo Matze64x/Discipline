@@ -1,5 +1,6 @@
 /** Habits and the day view, operated by keyboard (the desktop way) and mouse. */
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { waitForApp } from './app';
 
 test.skip(({ hasTouch }) => hasTouch === true, 'keyboard and mouse (touch: touch.spec.ts)');
 
@@ -7,7 +8,7 @@ test.skip(({ hasTouch }) => hasTouch === true, 'keyboard and mouse (touch: touch
 async function open(page: Page, date = new Date(2026, 10, 23, 20, 0)) {
 	await page.clock.setFixedTime(date);
 	await page.goto('/');
-	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await waitForApp(page);
 }
 
 async function keys(page: Page, ...sequence: string[]) {

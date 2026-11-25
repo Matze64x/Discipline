@@ -5,6 +5,7 @@
  * command and `sync-message` events.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { waitForApp, fileAction } from './app';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { addHabit, EMPTY_DATA, PeerSession, type DisciplineData, type CivilDate, type HabitDraft, type DeviceInfo, type StoredBase, type SyncMessage, type UtcSeconds } from '../../src/core';
@@ -150,12 +151,12 @@ class Phone {
 test.beforeEach(async ({ page }) => {
 	await installFakeTauri(page);
 	await page.goto('/');
-	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await waitForApp(page);
 	await page.getByRole('button', { name: 'Habits', exact: true }).click();
 });
 
 async function importFixture(page: Page) {
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
+	await fileAction(page, 'Import');
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
 	await expect(habits(page)).toHaveCount(3);
 }

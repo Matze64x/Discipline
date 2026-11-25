@@ -6,6 +6,7 @@
  * plugin:event|listen, plugin:dialog|open/save/message, plugin:window|destroy).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { fileAction, openSettings, waitForApp } from './app';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -118,7 +119,7 @@ const habitsIn = async (page: Page, path: string) => {
 };
 
 async function importFile(page: Page) {
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
+	await fileAction(page, 'Import');
 	const dialog = page.getByRole('dialog', { name: 'Import “discipline.json”' });
 	await dialog.getByRole('button', { name: 'Import' }).click();
 	await expect(dialog).toBeHidden();
@@ -148,27 +149,27 @@ test.skip(({ hasTouch }) => hasTouch === true, 'the desktop app');
 test.beforeEach(async ({ page }) => {
 	await installFakeTauri(page);
 	await page.goto('/');
-	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await waitForApp(page);
 	await page.getByRole('button', { name: 'Habits', exact: true }).click();
 });
 
 test('import with a preview, and export where the user chooses', async ({ page }) => {
 	await importFile(page);
-	await expect(page.getByRole('button', { name: 'Undo import' })).toBeVisible();
+	await expect((await openSettings(page)).getByRole('button', { name: 'Undo import' })).toBeVisible();
+	await page.keyboard.press('Escape');
 
 	await addHabit(page, 'Added on the desktop');
 	await onFake(page, 'fake.dialogPath = arg', '/home/user/export');
-	await page.getByRole('button', { name: /^Export/ }).click();
+	await fileAction(page, 'Export');
 	await expect(page.getByRole('status')).toContainText('Exported.');
 	// the extension is added
 	expect(await habitsIn(page, '/home/user/export.json')).toBe(4);
-	await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
 });
 
 test('a cancelled dialog changes nothing', async ({ page }) => {
 	await onFake(page, 'fake.dialogPath = null');
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
-	await page.getByRole('button', { name: /^Export/ }).click();
+	await fileAction(page, 'Import');
+	await fileAction(page, 'Export');
 	// (both dialogs were shown and answered, and nothing followed)
 	await expect.poll(async () => (await fakeState(page)).dialogs).toBe(2);
 	await expect(page.getByRole('dialog')).toBeHidden();
@@ -252,13 +253,13 @@ test('a backup is no export: importing the exported file later keeps the changes
 	await chooseBackup(page);
 	await addHabit(page, 'Exported to the phone');
 	await onFake(page, 'fake.dialogPath = arg', '/home/user/Sync/phone.json');
-	await page.getByRole('button', { name: /^Export/ }).click();
+	await fileAction(page, 'Export');
 	await expect(page.getByRole('status')).toContainText('Exported.');
 
 	await addHabit(page, 'Only on the desktop');
 	await expect.poll(() => habitsIn(page, BACKUP), { timeout: 8000 }).toBe(5);
 	// the phone's file comes back unchanged
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
+	await fileAction(page, 'Import');
 	const dialog = page.getByRole('dialog', { name: 'Import “phone.json”' });
 	await expect(dialog).toContainText('Nothing new');
 	await dialog.getByRole('button', { name: 'Import' }).click();
@@ -281,11 +282,11 @@ test('closing while a change is still being saved backs it up', async ({ page })
 test('a name typed without .json still asks before replacing that file', async ({ page }) => {
 	await importFile(page);
 	await onFake(page, 'fake.disk["/home/user/Sync/phone.json"] = "keep me"; fake.dialogPath = "/home/user/Sync/phone"; fake.replace = false');
-	await page.getByRole('button', { name: /^Export/ }).click();
+	await fileAction(page, 'Export');
 	await expect.poll(async () => (await fakeState(page)).asked).toEqual(['phone.json already exists. Replace it?']);
 	expect((await fakeState(page)).disk['/home/user/Sync/phone.json']).toBe('keep me');
 
 	await onFake(page, 'fake.replace = true');
-	await page.getByRole('button', { name: /^Export/ }).click();
+	await fileAction(page, 'Export');
 	await expect.poll(() => habitsIn(page, '/home/user/Sync/phone.json')).toBe(3);
 });

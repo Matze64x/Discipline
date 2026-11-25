@@ -1,5 +1,6 @@
 /** The build exactly as published on GitHub Pages (below /Discipline/), see playwright.config.ts. */
 import { expect, test } from '@playwright/test';
+import { waitForApp, fileAction } from './app';
 import { fileURLToPath } from 'node:url';
 
 const PUBLISHED = 'http://localhost:5298/Discipline/';
@@ -10,9 +11,9 @@ test('the installed app works offline, with its data', async ({ page, context })
 	// the service worker takes over once it has cached the app
 	await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
 
-	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await waitForApp(page);
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Import', exact: true }).click();
+	await fileAction(page, 'Import');
 	await (await chooser).setFiles(FIXTURE);
 	await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
 	await expect(page.getByRole('listbox', { name: 'Habits of the day' }).getByRole('option').filter({ hasText: 'Run' })).toBeVisible();

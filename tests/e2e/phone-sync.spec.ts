@@ -8,6 +8,7 @@
  * the desktop app).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { waitForApp } from './app';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -104,7 +105,7 @@ test('a phone pairs with a PC by its code, syncs both ways, and reconnects by it
 		const code = await pc.code;
 
 		await page.goto('/');
-		await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+		await waitForApp(page);
 		await page.getByRole('button', { name: 'Habits', exact: true }).click();
 		await expect(habits(page)).toHaveCount(0);
 		// networking is off at every start

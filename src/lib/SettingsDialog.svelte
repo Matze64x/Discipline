@@ -1,19 +1,39 @@
 <!--
-	Preferences of this device (stored in the browser, not in the data file) and the devices it syncs
-	with. Changes apply at once.
+	Importing and exporting the data file, preferences of this device (stored in the browser, not in
+	the data file) and the devices it syncs with. Changes apply at once.
 -->
 <script lang="ts">
 	import { DATE_STYLES, formatDateAs, today, type DateStyle } from '../core';
 	import { attempt } from './attempt';
 	import { chooseFileToSave, dataLocation, isDesktop, suggestedBackupPath } from './desktop';
 	import { DAY_STARTS, settings } from './settings.svelte';
+	import { displayKeys } from './shortcuts.svelte';
 	import type { DesktopSync } from './sync/desktop-sync.svelte';
 	import Devices from './sync/Devices.svelte';
 	import type { PhoneSync } from './sync/phone-sync.svelte';
 	import Modal from './ui/Modal.svelte';
 	import type { Workspace } from './workspace.svelte';
 
-	let { workspace, sync, onclose }: { workspace: Workspace; sync: DesktopSync | PhoneSync; onclose: () => void } = $props();
+	let {
+		workspace,
+		sync,
+		busy,
+		onimport,
+		onexport,
+		onundoimport,
+		onclose,
+	}: {
+		workspace: Workspace;
+		sync: DesktopSync | PhoneSync;
+		/** The data isn't loaded (yet): no file actions */
+		busy: boolean;
+		/** The file actions; each closes the dialog first. They must start right in the click
+		 * (browsers allow a file chooser or download only directly after one) */
+		onimport: () => void;
+		onexport: () => void;
+		onundoimport: () => void;
+		onclose: () => void;
+	} = $props();
 	const sample = today();
 	const time = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 	const location = isDesktop ? dataLocation().catch(() => null) : null;
@@ -34,6 +54,14 @@
 
 <Modal title="Settings" {onclose}>
 	<div class="settings">
+		<span class="label first">File</span>
+		<div class="row">
+			<button type="button" disabled={busy} title={displayKeys('Mod+o')} onclick={onimport}>Import</button>
+			<button type="button" disabled={busy} title={displayKeys('Mod+s')} onclick={onexport}>Export</button>
+			{#if workspace.canUndoImport}<button type="button" disabled={busy} onclick={onundoimport}>Undo import</button>{/if}
+		</div>
+		{#if workspace.fileName}<p class="muted file">Last file: <span class="name">{workspace.fileName}</span></p>{/if}
+		<hr />
 		<label for="date-style">Date format</label>
 		<select id="date-style" value={settings.dateStyle} onchange={(e) => (settings.dateStyle = e.currentTarget.value as DateStyle)}>
 			{#each DATE_STYLES as style (style)}
@@ -102,6 +130,13 @@
 	.label {
 		color: var(--muted);
 		margin-top: 0.75rem;
+	}
+	.label.first {
+		margin-top: 0;
+	}
+	.file {
+		margin: 0;
+		overflow-wrap: anywhere;
 	}
 	.backup {
 		display: grid;
