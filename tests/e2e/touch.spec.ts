@@ -68,7 +68,8 @@ test('add habits, check off and enter amounts by taps', async ({ page }) => {
 	await amount.getByLabel('Add').fill('4');
 	await amount.getByRole('button', { name: 'Save' }).tap();
 	await expect(dayRow(page, 'Read')).toContainText('5 / 30');
-	await dayRow(page, 'Read').getByRole('button', { name: 'Complete' }).tap();
+	await dayRow(page, 'Read').locator('.mark').tap();
+	await page.getByRole('dialog', { name: /Read/ }).getByRole('button', { name: 'Complete +25' }).tap();
 	await expect(dayRow(page, 'Read')).toContainText('30 / 30');
 
 	// the day before (before they started), and back

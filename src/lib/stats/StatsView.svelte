@@ -135,6 +135,7 @@
 		group="Stats"
 		itemName="habit"
 		onopen={show}
+		cards
 	>
 		{#snippet row(h)}
 			<div class="habit" class:archived={h.archived !== null}>
@@ -192,10 +193,14 @@
 		margin: 0.3rem 0 0;
 		min-height: 1.3em;
 	}
+	/* a card per habit, as on Today */
 	.habit {
 		display: grid;
 		gap: 0.4rem;
 		padding: 0.6rem 0.75rem 0.7rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
 	}
 	.archived {
 		opacity: 0.6;

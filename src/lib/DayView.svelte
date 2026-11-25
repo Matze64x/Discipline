@@ -6,8 +6,8 @@
 	still open), a weekly or monthly one a bar whose border shows how far the period has run and
 	whose fill how far the habit is. In the focused list, Space or Enter checks the
 	selected habit off (or opens its amount), a digit starts entering an amount, Delete clears it,
-	e edits the habit. An amount habit's buttons (and keys): +1 (+), add an amount (a), complete:
-	add what's missing to meet the goal (c). A click on a row's mark does the same as Space.
+	e edits the habit. An amount habit's buttons (and keys): +1 (+), add an amount (a); complete
+	(add what's missing to meet the goal) is in the amount dialog, and c. A click on a row's mark does the same as Space.
 	A tap on a row (or f) focuses its habit: the days above show only how it did, in its color, while
 	paging and across tabs; a tap again (or Escape) shows all habits again (user design 2026-11-25:
 	a tap on a row must not open the amount dialog).
@@ -23,6 +23,7 @@
 		entryOn,
 		isActiveOn,
 		progressOn,
+		remainingOf,
 		startOfMonth,
 		startOfWeek,
 		timeShare,
@@ -37,6 +38,7 @@
 	import { clock } from './clock.svelte';
 	import DayStrip from './DayStrip.svelte';
 	import { describeDayAmount, formatDate, formatMonth, formatShortDate, formatValue, withUnit } from './display';
+	import { formatShort } from './short-number';
 	import { settings } from './settings.svelte';
 	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
 	import { swipe } from './ui/swipe';
@@ -253,6 +255,8 @@
 {/if}
 </div>
 
+<!-- (as wide as the days above: on a wide screen a row's progress would be far from its name) -->
+<div class="day-list">
 <SelectableList
 	bind:this={list}
 	bind:selected={selectedId}
@@ -265,15 +269,24 @@
 	itemName="habit"
 	onopen={(r) => toggleFocus(r.habit)}
 	showSelection={!touchFirst}
+	cards
 >
 	{#snippet row(r)}
 		{@const { habit, progress, value } = r}
 		{@const daily = progress.goal.period === 'day'}
 		{@const limit = progress.goal.aim === 'limit'}
-		{@const completable = canComplete(habit, progress, value)}
 		<!-- a limit's mark never fills (an entry is a slip, ✗); it turns red once the limit is broken -->
 		{@const filled = !limit && (habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met)}
 		{@const over = limit && progress.due && !progress.met}
+		<!-- the mark stays a circle: a long amount is written short, and smaller -->
+		{@const markText = habit.kind === 'check' ? (value === null ? '' : limit ? '✗' : '✓') : formatShort(value ?? 0)}
+		{@const progressText = daily
+			? habit.kind === 'amount'
+				? describeDayAmount(progress, habit)
+				: ''
+			: habit.kind === 'check'
+				? `${progress.done} / ${limit ? 'max ' : ''}${progress.target}`
+				: `${formatValue(progress.done)} / ${limit ? 'max ' : ''}${withUnit(progress.target, habit.unit)}`}
 		<div class="row" class:off={!progress.due && value === null} class:focused={focusedId === habit.id} style:--color={habit.color}>
 			<!--
 				The mark: checks off or opens the amount (Space does the same; a tap on the row focuses). Hidden from
@@ -286,15 +299,19 @@
 				class:filled
 				class:over
 				style:--color={habit.color}
+				style:font-size={markText.length <= 2 ? null : markText.length === 3 ? '0.9rem' : markText.length === 4 ? '0.78rem' : '0.68rem'}
 				tabindex="-1"
 				aria-hidden="true"
 				onmousedown={(e) => e.preventDefault()}
 				onclick={(e) => onButton(e, r, activate)}
 			>
-				{#if habit.kind === 'check'}{value === null ? '' : limit ? '✗' : '✓'}{:else}{formatValue(value ?? 0)}{/if}
+				{markText}
 			</button>
 			<div class="text">
+				<span class="head">
 				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{limit ? (value === null ? ' (kept)' : ' (slipped)') : value === null ? ' (not done)' : ' (done)'}</span>{/if}{#if focusedId === habit.id}<span class="visually-hidden">{' (its days shown above)'}</span>{/if}</span>
+				{#if progressText}<span class="progress" class:met={progress.met && !limit} class:over={limit && !progress.met}>{progressText}</span>{/if}
+				</span>
 				{#if daily}
 					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
 					<span class="dots">
@@ -302,7 +319,6 @@
 						{#each marks as mark, i (i)}
 							<span class={`dot ${mark}`} class:current={week[i] === date} class:today={week[i] === clock.today} style:--color={habit.color} aria-hidden="true"></span>
 						{/each}
-						{#if habit.kind === 'amount'}<span class="progress" class:met={progress.met && !limit} class:over={limit && !progress.met}>{describeDayAmount(progress, habit)}</span>{/if}
 					</span>
 				{:else}
 					{@const time = timeShare(progress, clock.today)}
@@ -319,29 +335,16 @@
 							style:--time={`${time * 100}%`}
 							style:--done={used}
 						><span class="fill"></span></span>
-						<span class="progress" class:met={progress.met && !limit} class:over={limit && !progress.met}>{habit.kind === 'check' ? `${progress.done} / ${limit ? 'max ' : ''}${progress.target}` : `${formatValue(progress.done)} / ${limit ? 'max ' : ''}${withUnit(progress.target, habit.unit)}`}</span>
 					</span>
 				{/if}
 			</div>
-			<!-- (never focused, like the mark: the keys act on the list's selection; ✓ for every habit) -->
-			<span class="actions">
-				{#if habit.kind === 'amount'}
+			<!-- (never focused, like the mark: the keys act on the list's selection) -->
+			{#if habit.kind === 'amount'}
+				<span class="actions">
 					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
 					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>
-				{/if}
-				<!-- (a limit is kept by doing nothing: no complete) -->
-				{#if !limit}
-					<button
-						type="button"
-						tabindex="-1"
-						title="Complete (c)"
-						aria-label="Complete"
-						aria-disabled={!completable}
-						onmousedown={(e) => e.preventDefault()}
-						onclick={(e) => onButton(e, r, complete)}>✓</button
-					>
-				{/if}
 				</span>
+			{/if}
 		</div>
 	{/snippet}
 	{#snippet empty()}
@@ -355,15 +358,19 @@
 		</div>
 	{/snippet}
 </SelectableList>
+</div>
 
 {#if entering}
 	{@const e = entering}
+	{@const amountProgress = progressOn(workspace.data, e.habit, e.date, workspace.data.preferences.weekStart)}
 	<AmountDialog
 		habit={e.habit}
 		date={e.date}
 		value={e.value}
 		typed={e.typed}
 		adding={e.adding}
+		progress={amountProgress}
+		remaining={amountProgress && canComplete(e.habit, amountProgress, e.value) ? remainingOf(amountProgress) : 0}
 		onsave={(value) => {
 			// (closing clears `entering`, and with it `e`: take what's needed first)
 			const { habit, date: day, adding } = e;
@@ -376,7 +383,8 @@
 {/if}
 
 <style>
-	.calendar {
+	.calendar,
+	.day-list {
 		max-width: 30rem;
 	}
 	.toolbar {
@@ -424,7 +432,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.3rem;
-		margin-top: 0.2rem;
+		/* (as tall as a bar's line) */
+		min-height: 1rem;
 	}
 	.dot {
 		position: relative;
@@ -467,26 +476,26 @@
 		outline: 2px solid var(--text);
 		outline-offset: 1px;
 	}
-	.dots .progress {
-		margin-left: 0.35rem;
-	}
 	/* a weekly or monthly goal: the border shows how far the period has run, the fill how far the habit is */
 	.period {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin-top: 0.2rem;
+		min-height: 1rem;
 	}
+	/* (fixed: the bars of weeks and months start at the same place) */
 	.label {
+		flex: none;
+		width: 3.4rem;
 		font-size: 0.7rem;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: var(--muted);
 	}
+	/* (the same length on every row, with or without buttons: fits next to them on a phone) */
 	.bar {
 		position: relative;
-		flex: 1 1 4rem;
-		max-width: 9rem;
+		flex: 0 1 7rem;
 		height: 0.75rem;
 	}
 	/* the border: all of it light, and the part for the time gone dark on top of it (cut to --time) */
@@ -521,25 +530,32 @@
 		background: color-mix(in srgb, var(--color) 12%, transparent);
 		font-size: 0.9rem;
 	}
-	/* the habit whose days the strip shows: its color, as the rings */
-	.row.focused {
-		background: color-mix(in srgb, var(--color) 12%, transparent);
-		box-shadow: inset 4px 0 0 var(--color);
-	}
+	/* a card per habit */
 	.row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 0.5rem 0.75rem;
+		padding: 0.55rem 0.7rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
+	}
+	/* the habit whose days the strip shows: its color, as the rings */
+	.row.focused {
+		background: color-mix(in srgb, var(--color) 12%, var(--surface));
+		border-color: var(--color);
+		box-shadow: inset 4px 0 0 var(--color);
 	}
 	.off {
 		opacity: 0.55;
 	}
 	.mark {
 		flex: none;
-		min-width: max(2.4rem, var(--tap));
+		width: max(2.4rem, var(--tap));
 		height: max(2.4rem, var(--tap));
-		padding: 0 0.5rem;
+		padding: 0;
+		overflow: hidden;
+		white-space: nowrap;
 		border-radius: 999px;
 		border: 2px solid var(--color);
 		background: none;
@@ -554,13 +570,29 @@
 		border-color: var(--negative);
 		color: var(--negative);
 	}
-	/* the name, with the progress below it */
+	/* the name and its progress, the dots or bar below (all starting at the same place) */
 	.text {
 		flex: 1 1 auto;
 		min-width: 0;
 		display: grid;
+		gap: 0.3rem;
+	}
+	/* the progress goes to a line of its own (still right-aligned) when it doesn't fit next to the name */
+	.head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: 0.5rem;
 	}
 	.name {
+		flex: 1 1 6rem;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	.head .progress {
+		margin-left: auto;
+		min-width: 0;
+		text-align: right;
 		overflow-wrap: anywhere;
 	}
 	.visually-hidden {
@@ -584,9 +616,6 @@
 		min-width: max(2.4rem, var(--tap));
 		height: max(2.4rem, var(--tap));
 		padding: 0 0.4rem;
-	}
-	.actions button[aria-disabled='true'] {
-		opacity: 0.4;
 	}
 	.progress.met {
 		color: var(--positive);

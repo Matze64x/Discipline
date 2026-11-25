@@ -28,6 +28,7 @@
 		row,
 		empty,
 		showSelection = true,
+		cards = false,
 	}: {
 		items: readonly T[];
 		/** Identifies an item (unique within the list) */
@@ -50,6 +51,8 @@
 		empty: Snippet;
 		/** Whether the selected row is highlighted (false: the view shows something else, e.g. on touch screens, where there's no keyboard cursor) */
 		showSelection?: boolean;
+		/** Each row is a card of its own (the row snippet draws it; the selection outlines it) instead of a line */
+		cards?: boolean;
 	} = $props();
 
 	const prefix = `option-${Math.random().toString(36).slice(2)}`;
@@ -280,6 +283,7 @@
 <div
 	bind:this={element}
 	class="list"
+	class:cards
 	role="listbox"
 	tabindex="0"
 	aria-label={label}
@@ -334,5 +338,25 @@
 	/* a grey bar: the keys don't go to the list right now */
 	.list:not(:focus) .option.selected {
 		box-shadow: inset 3px 0 0 var(--control-border);
+	}
+	/* cards: apart from each other; the selection outlines the card */
+	.cards {
+		padding: 0.15rem 0.75rem 0.5rem;
+	}
+	.cards .option {
+		border-bottom: none;
+		padding: 0.25rem 0;
+	}
+	.cards .option.selected,
+	.list.cards:not(:focus) .option.selected {
+		background: none;
+		box-shadow: none;
+	}
+	.cards .option.selected > :global(*) {
+		outline: 2px solid var(--accent);
+		outline-offset: -1px;
+	}
+	.list.cards:not(:focus) .option.selected > :global(*) {
+		outline-color: var(--control-border);
 	}
 </style>

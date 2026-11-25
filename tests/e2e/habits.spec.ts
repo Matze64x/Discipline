@@ -132,24 +132,33 @@ test('amounts: +1, add an amount and complete, by keys and clicks', async ({ pag
 	await expect(dayRow(page, 'Read')).toContainText('2 / 30 min');
 	await keys(page, 'a');
 	const dialog = page.getByRole('dialog', { name: /Read/ });
-	await expect(dialog).toContainText('Now: 2 min');
+	await expect(dialog).toContainText('Day: 2 / 30 min');
 	await dialog.getByLabel('Add').fill('10,5');
 	await keys(page, 'Enter');
 	await expect(dialog).toBeHidden();
 	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30 min');
-	await keys(page, 'c');
+	// complete: in the amount dialog (no button on the row), or c
+	await expect(dayRow(page, 'Read').getByRole('button', { name: /Complete/ })).toHaveCount(0);
+	await dayRow(page, 'Read').locator('.mark').click();
+	await dialog.getByRole('button', { name: 'Complete +17.5 min' }).click();
+	await expect(dialog).toBeHidden();
 	await expect(dayRow(page, 'Read')).toContainText('30 / 30 min');
-	// met: complete adds nothing more
-	await expect(dayRow(page, 'Read').getByRole('button', { name: 'Complete' })).toBeDisabled();
+	// met: nothing to complete any more
+	await keys(page, 'a');
+	await expect(dialog.getByRole('button', { name: /Complete/ })).toHaveCount(0);
+	await keys(page, 'Escape');
 	await keys(page, 'c');
 	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).click();
 	await expect(dayRow(page, 'Read')).toContainText('31 / 30 min');
-	// over the goal: complete (key or button) never snaps it back
+	// over the goal: complete never snaps it back
 	await keys(page, 'c');
-	await dayRow(page, 'Read').getByRole('button', { name: 'Complete' }).click({ force: true });
 	await expect(dayRow(page, 'Read')).toContainText('31 / 30 min');
 	await keys(page, 'Control+z', 'Control+z');
 	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30 min');
+	// adding, complete adds what's missing too
+	await keys(page, 'a');
+	await dialog.getByRole('button', { name: 'Complete +17.5 min' }).click();
+	await expect(dayRow(page, 'Read')).toContainText('30 / 30 min');
 	// the list kept the focus through the clicks
 	await expect(dayList(page)).toBeFocused();
 });
@@ -327,19 +336,13 @@ test('the days above: week or month, the week’s dots and the period bars', asy
 	await expect(page.getByRole('heading', { name: '23.11. – 29.11.' })).toBeVisible();
 });
 
-test('✓ completes any habit; a double click is two clicks, never the amount dialog', async ({ page }) => {
+test('a double click is two clicks, never the amount dialog', async ({ page }) => {
 	await open(page);
-	await addHabit(page, 'Meditate');
 	await addHabit(page, 'Read', async (dialog) => {
 		await dialog.getByText('Amount', { exact: true }).click();
 		await dialog.getByLabel('Goal', { exact: true }).fill('30');
 	});
 	await keys(page, 'g', 't');
-	// a yes/no habit has ✓ too: it checks it off, then there's nothing more to complete
-	const complete = dayRow(page, 'Meditate').getByRole('button', { name: 'Complete' });
-	await complete.click();
-	await expect(dayRow(page, 'Meditate')).toContainText('(done)');
-	await expect(complete).toBeDisabled();
 	// +1 twice in quick succession: 2, and no dialog
 	await dayRow(page, 'Read').getByRole('button', { name: 'Add 1' }).dblclick();
 	await expect(dayRow(page, 'Read')).toContainText('2 / 30');
