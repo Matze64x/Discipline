@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EMPTY_DATA, FORMAT_VERSION, parseDiscipline, serializeDiscipline, type DisciplineData } from '../../src/core';
 import { randomData } from './random-data';
 
-const GOAL = { from: '2026-11-01', period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 30 };
+const GOAL = { from: '2026-11-01', period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 30 };
 const HABIT = { id: '42', name: 'Read', kind: 'amount', unit: 'min', goals: [GOAL], color: '#3a86ff', position: 1, archived: null, edited: '2026-11-24T20:15:00Z' };
 const PREFERENCES = { dayStart: 240, weekStart: 7, edited: '2026-11-25T10:00:00Z' };
 const ENTRY = { habit: '42', date: '2026-11-24', value: 45, edited: '2026-11-24T20:15:00Z' };
@@ -28,14 +28,14 @@ function parsed(text: string): DisciplineData {
 describe('format', () => {
 	it('reads and writes a document', () => {
 		const data = parsed(file());
-		expect(data.habits[0]).toMatchObject({ id: '42', name: 'Read', goals: [{ from: '2026-11-01', period: 'day', target: 30 }], archived: null, edited: Date.UTC(2026, 10, 24, 20, 15) / 1000 });
+		expect(data.habits[0]).toMatchObject({ id: '42', name: 'Read', goals: [{ from: '2026-11-01', period: 'day', aim: 'build', target: 30 }], archived: null, edited: Date.UTC(2026, 10, 24, 20, 15) / 1000 });
 		expect(serializeDiscipline(data)).toBe(
 			[
 				'{',
-				'\t"version": 2,',
+				'\t"version": 3,',
 				'\t"preferences": {"dayStart": 240, "weekStart": 7, "edited": "2026-11-25T10:00:00Z"},',
 				'\t"habits": [',
-				'\t\t{"id": "42", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-01", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}',
+				'\t\t{"id": "42", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-01", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "aim": "build", "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}',
 				'\t],',
 				'\t"entries": [',
 				'\t\t{"habit": "42", "date": "2026-11-24", "value": 45, "edited": "2026-11-24T20:15:00Z"}',
@@ -53,6 +53,35 @@ describe('format', () => {
 		expect(parseDiscipline(JSON.stringify({ version: 1, preferences: PREFERENCES, habits: [], entries: [] })).warnings).toEqual([{ path: 'preferences', message: 'Unknown key, it will be dropped on save' }]);
 	});
 
+	it('reads version 2 (no aim yet): every goal builds', () => {
+		const { aim: _, ...old } = GOAL;
+		const data = parsed(JSON.stringify({ version: 2, preferences: PREFERENCES, habits: [{ ...HABIT, goals: [old] }], entries: [ENTRY] }));
+		expect(data.habits[0]!.goals[0]!.aim).toBe('build');
+		expect(errorsOf(file({ habits: [{ ...HABIT, goals: [old] }] }))).toEqual(['habits[0].goals[0].aim: Missing']);
+	});
+
+	it('reads limits, down to 0', () => {
+		const data = parsed(
+			file({
+				habits: [
+					{ ...HABIT, ...goals({ aim: 'limit', target: 0 }, { from: '2026-11-10', aim: 'limit', target: 2.5 }) },
+					{ ...HABIT, id: '43', kind: 'check', unit: '', ...goals({ aim: 'limit', target: 0 }, { from: '2026-11-10', period: 'week', days: undefined, aim: 'limit', target: 0 }) },
+				],
+				entries: [],
+			}),
+		);
+		expect(data.habits.map((h) => h.goals.map((g) => [g.aim, g.target]))).toEqual([
+			[
+				['limit', 0],
+				['limit', 2.5],
+			],
+			[
+				['limit', 0],
+				['limit', 0],
+			],
+		]);
+	});
+
 	it('checks the preferences', () => {
 		expect(errorsOf(file({ preferences: { ...PREFERENCES, dayStart: 45 } }))).toEqual(['preferences.dayStart: Must be one of 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360 (minutes after midnight)']);
 		expect(errorsOf(file({ preferences: { ...PREFERENCES, weekStart: 2 } }))).toEqual(['preferences.weekStart: Must be 1 (Monday) or 7 (Sunday)']);
@@ -66,7 +95,7 @@ describe('format', () => {
 	});
 
 	it('writes empty data', () => {
-		expect(serializeDiscipline(EMPTY_DATA)).toBe('{\n\t"version": 2,\n\t"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},\n\t"habits": [],\n\t"entries": []\n}\n');
+		expect(serializeDiscipline(EMPTY_DATA)).toBe('{\n\t"version": 3,\n\t"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},\n\t"habits": [],\n\t"entries": []\n}\n');
 		expect(parsed(serializeDiscipline(EMPTY_DATA))).toEqual(EMPTY_DATA);
 	});
 
@@ -108,7 +137,7 @@ describe('format', () => {
 	});
 
 	it('names a newer format', () => {
-		expect(errorsOf(file({ version: 3 }))[0]).toMatch(/newer version of Discipline/);
+		expect(errorsOf(file({ version: 4 }))[0]).toMatch(/newer version of Discipline/);
 		expect(errorsOf(file({ version: 0 }))[0]).toMatch(/Unsupported version 0/);
 		expect(errorsOf(file({ version: '1' }))).toEqual(['version: Must be a number']);
 	});
@@ -124,7 +153,7 @@ describe('format', () => {
 		['name with NUL', file({ habits: [{ ...HABIT, name: 'Re\u0000ad' }] }), /^habits\[0\]\.name: Must not start or end with white space or contain NUL/],
 		['unit with outer space', file({ habits: [{ ...HABIT, unit: 'min ' }] }), /^habits\[0\]\.unit: Must not start/],
 		['bad kind', file({ habits: [{ ...HABIT, kind: 'avoid' }] }), /^habits\[0\]\.kind: Invalid kind/],
-		['unit on a check habit', file({ habits: [{ ...HABIT, kind: 'check', ...goals({ period: 'week', target: 3, days: undefined }) }], entries: [] }), /^habits\[0\]\.unit: Must be empty/],
+		['unit on a check habit', file({ habits: [{ ...HABIT, kind: 'check', ...goals({ period: 'week', aim: 'build', target: 3, days: undefined }) }], entries: [] }), /^habits\[0\]\.unit: Must be empty/],
 		['bad color', file({ habits: [{ ...HABIT, color: '#3A86FF' }] }), /^habits\[0\]\.color: Invalid color/],
 		['infinite position', file().replace('"position":1', '"position":1e400'), /^habits\[0\]\.position: Must be a number from/],
 		['huge position', file({ habits: [{ ...HABIT, position: 1e9 + 1 }] }), /^habits\[0\]\.position: Must be a number from/],
@@ -143,6 +172,10 @@ describe('format', () => {
 		['weekday 0', file({ habits: [{ ...HABIT, ...goals({ days: [0] }) }] }), /^habits\[0\]\.goals\[0\]\.days: Must be weekdays/],
 		['check target per day', file({ habits: [{ ...HABIT, kind: 'check', unit: '', ...goals({ target: 2 }) }], entries: [] }), /^habits\[0\]\.goals\[0\]: Invalid goal/],
 		['check target per week', file({ habits: [{ ...HABIT, kind: 'check', unit: '', ...goals({ period: 'week', days: undefined, target: 8 }) }], entries: [] }), /^habits\[0\]\.goals\[0\]: Invalid goal/],
+		['bad aim', file({ habits: [{ ...HABIT, ...goals({ aim: 'avoid' }) }] }), /^habits\[0\]\.goals\[0\]\.aim: Invalid aim/],
+		['build target 0', file({ habits: [{ ...HABIT, ...goals({ target: 0 }) }] }), /^habits\[0\]\.goals\[0\]: Invalid goal/],
+		['limit target -0', file({ habits: [{ ...HABIT, ...goals({ aim: 'limit', target: -0 }) }] }).replace('"target":0', '"target":-0'), /^habits\[0\]\.goals\[0\]: Invalid goal/],
+		['daily check limit other than 0', file({ habits: [{ ...HABIT, kind: 'check', unit: '', ...goals({ aim: 'limit', target: 1 }) }], entries: [] }), /^habits\[0\]\.goals\[0\]: Invalid goal: expected .* target that is 0/],
 		['target with 4 decimals', file({ habits: [{ ...HABIT, ...goals({ period: 'month', days: undefined, target: 0.0001 }) }] }), /^habits\[0\]\.goals\[0\]: Invalid goal/],
 		['unknown habit', file({ entries: [{ ...ENTRY, habit: '43' }] }), /^entries\[0\]\.habit: Unknown habit 43/],
 		['second entry on a day', file({ entries: [ENTRY, { ...ENTRY, value: 1 }] }), /^entries\[1\]: Second entry for habit 42 on 2026-11-24/],

@@ -12,7 +12,7 @@ import { addHabit, EMPTY_DATA, PeerSession, type DisciplineData, type CivilDate,
 const habits = (page: Page) => page.getByRole('listbox', { name: 'Habits', exact: true }).getByRole('option');
 
 /** A habit added by another device (core edit, as that device would) */
-const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', color: '#3a86ff', start: '2026-11-01' as CivilDate, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 1 } });
+const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', color: '#3a86ff', start: '2026-11-01' as CivilDate, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 1 } });
 
 const FIXTURE_PATH = fileURLToPath(new URL('../fixtures/example.json', import.meta.url));
 const FIXTURE = readFileSync(FIXTURE_PATH, 'utf8');

@@ -19,7 +19,7 @@ import { addHabit, parseDiscipline, PeerSession, type DisciplineData, type Civil
 const habits = (page: Page) => page.getByRole('listbox', { name: 'Habits', exact: true }).getByRole('option');
 
 /** A habit added by another device (core edit, as that device would) */
-const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', color: '#3a86ff', start: '2026-11-01' as CivilDate, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 1 } });
+const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', color: '#3a86ff', start: '2026-11-01' as CivilDate, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 1 } });
 
 const ENDPOINT = fileURLToPath(new URL('../../src-tauri/target/debug/examples/sync_endpoint', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixtures/example.json', import.meta.url));

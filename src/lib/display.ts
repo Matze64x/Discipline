@@ -66,15 +66,25 @@ export function describeDays(days: readonly Weekday[]): string {
 	return days.map(weekdayName).join(', ');
 }
 
-/** A goal in words: "every day", "30 min Mon–Fri", "3 times a week", "20 km a month" */
+/**
+ * A goal in words: "every day", "30 min Mon–Fri", "3 times a week", "20 km a month"; limits: "never",
+ * "not on weekends", "at most 2 cups every day", "at most twice a week"
+ */
 export function describeGoal(goal: Goal, habit: Pick<Habit, 'kind' | 'unit'>): string {
 	const per = goal.period === 'week' ? 'a week' : 'a month';
+	const times = (n: number) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
+	if (goal.aim === 'limit') {
+		if (goal.target === 0) return goal.period !== 'day' || goal.days.length === 7 ? 'never' : `not on ${describeDays(goal.days)}`;
+		const amount = habit.kind === 'check' ? times(goal.target) : withUnit(goal.target, habit.unit);
+		return `at most ${amount} ${goal.period === 'day' ? describeDays(goal.days) : per}`;
+	}
 	if (goal.period === 'day') return habit.kind === 'check' ? describeDays(goal.days) : `${withUnit(goal.target, habit.unit)} ${describeDays(goal.days)}`;
-	if (habit.kind === 'check') return `${goal.target === 1 ? 'once' : goal.target === 2 ? 'twice' : `${goal.target} times`} ${per}`;
+	if (habit.kind === 'check') return `${times(goal.target)} ${per}`;
 	return `${withUnit(goal.target, habit.unit)} ${per}`;
 }
 
-/** A daily amount goal's day in words: "20 / 30 min" ("Not due" on another weekday) */
+/** A daily amount goal's day in words: "20 / 30 min", a limit "3 / max 2 cups" ("Not due" on another weekday) */
 export function describeDayAmount(progress: Progress, habit: Pick<Habit, 'unit'>): string {
-	return progress.due ? `${formatValue(progress.done)} / ${withUnit(progress.target, habit.unit)}` : 'Not due';
+	const max = progress.goal.aim === 'limit' ? 'max ' : '';
+	return progress.due ? `${formatValue(progress.done)} / ${max}${withUnit(progress.target, habit.unit)}` : 'Not due';
 }

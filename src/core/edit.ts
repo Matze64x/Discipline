@@ -75,7 +75,7 @@ function stamp(old: { edited: UtcSeconds } | undefined, now: UtcSeconds): UtcSec
 
 /** A goal in canonical form (only its own fields, in a fixed order) */
 function cleanGoal(goal: Goal): Goal {
-	return goal.period === 'day' ? { period: goal.period, days: [...goal.days], target: goal.target } : { period: goal.period, target: goal.target };
+	return goal.period === 'day' ? { period: goal.period, days: [...goal.days], aim: goal.aim, target: goal.target } : { period: goal.period, aim: goal.aim, target: goal.target };
 }
 
 function cleanDraft(draft: HabitDraft): HabitDraft {

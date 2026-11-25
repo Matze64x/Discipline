@@ -1,10 +1,10 @@
 <!--
-	Adds or edits a habit: name, yes/no or amount (the goal's amount and its unit), how often (on
+	Adds or edits a habit: name, build (at least) or limit (at most), yes/no or amount (the goal's amount and its unit), how often (on
 	which weekdays, or per week or month; a yes/no habit: on how many days), the day it starts, and its color. A changed goal counts from today
 	on; earlier days keep the goal they had. Editing also offers archiving and deleting.
 -->
 <script lang="ts">
-	import { addHabit, deepEqual, parseValueInput, toDraft, updateHabit, WEEKDAYS, type CivilDate, type Goal, type Habit, type HabitKind, type Id, type Weekday } from '../core';
+	import { addHabit, deepEqual, parseValueInput, toDraft, updateHabit, WEEKDAYS, type CivilDate, type Aim, type Goal, type Habit, type HabitKind, type Id, type Weekday } from '../core';
 	import { attempt } from './attempt';
 	import { clock } from './clock.svelte';
 	import { formatValue, weekdayName } from './display';
@@ -46,7 +46,7 @@
 	const usedColors = workspace.data.habits.map((h) => h.color);
 	const initial = original
 		? toDraft(original)
-		: { name: '', kind: 'check' as HabitKind, unit: '', color: unusedColor(usedColors), start: clock.today, goal: { period: 'day', days: [...WEEKDAYS], target: 1 } as Goal };
+		: { name: '', kind: 'check' as HabitKind, unit: '', color: unusedColor(usedColors), start: clock.today, goal: { period: 'day', days: [...WEEKDAYS], aim: 'build', target: 1 } as Goal };
 
 	/** The habit as it is now (moving it, or a sync, changes it while the dialog is open) */
 	const current = $derived(original ? workspace.data.habits.find((h) => h.id === original.id) : undefined);
@@ -54,13 +54,14 @@
 	const edited = (h: Habit) => ({ name: h.name, kind: h.kind, unit: h.unit, color: h.color, goals: h.goals });
 
 	let name = $state(initial.name);
+	let aim = $state<Aim>(initial.goal.aim);
 	let kind = $state<HabitKind>(initial.kind);
 	let unit = $state(initial.unit);
 	let color = $state(initial.color);
 	let start = $state<CivilDate | null>(initial.start);
 	let period = $state<Goal['period']>(initial.goal.period);
 	let days = $state<Weekday[]>(initial.goal.period === 'day' ? [...initial.goal.days] : [...WEEKDAYS]);
-	// a check habit's daily target is always 1: nothing to type then
+	// a check habit's daily target is always 1 (a limit: 0): nothing to type then
 	let targetText = $state(initial.goal.period === 'day' && initial.kind === 'check' ? '' : formatValue(initial.goal.target));
 	let failure = $state<string | null>(null);
 	let saving = false;
@@ -69,6 +70,10 @@
 		{ value: 'day', label: 'Daily' },
 		{ value: 'week', label: 'Weekly' },
 		{ value: 'month', label: 'Monthly' },
+	] as const;
+	const AIMS = [
+		{ value: 'build', label: 'Build' },
+		{ value: 'limit', label: 'Limit' },
 	] as const;
 	const KINDS = [
 		{ value: 'check', label: 'Yes / no' },
@@ -80,14 +85,15 @@
 	/** The goal as entered, or a reason why it isn't valid */
 	function goal(): Goal | string {
 		if (period === 'day' && days.length === 0) return 'Choose at least one weekday.';
-		if (!needsTarget) return { period: 'day', days: [...days], target: 1 };
-		const target = parseValueInput(targetText);
-		if (target === null) return 'Enter a target greater than 0.';
+		if (!needsTarget) return { period: 'day', days: [...days], aim, target: aim === 'build' ? 1 : 0 };
+		// a limit can be 0 (none at all)
+		const target = aim === 'limit' && /^(0+([.,]0*)?|[.,]0+)$/.test(targetText.trim()) ? 0 : parseValueInput(targetText);
+		if (target === null) return aim === 'build' ? 'Enter a target greater than 0.' : 'Enter a limit (0 or more).';
 		if (kind === 'check') {
 			const max = period === 'week' ? 7 : 31;
 			if (!Number.isInteger(target) || target > max) return `Enter a whole number of days, at most ${max}.`;
 		}
-		return period === 'day' ? { period, days: [...days], target } : { period, target };
+		return period === 'day' ? { period, days: [...days], aim, target } : { period, aim, target };
 	}
 
 	/** Whether the goal differs from the habit's latest one (it then counts from today on) */
@@ -150,13 +156,16 @@
 		<!-- svelte-ignore a11y_autofocus -->
 		<input id="habit-name" type="text" autocomplete="off" bind:value={name} autofocus required />
 
+		<span class="label">Aim</span>
+		<div class="row"><Segmented bind:value={aim} options={AIMS} label="Aim" /></div>
+
 		<span class="label">Track</span>
 		<div class="row">
 			<Segmented bind:value={kind} options={KINDS} label="Track" />
 			{#if kind === 'amount'}
 				<!-- the goal's amount, then its unit: "30 min", how often follows below -->
 				<div class="amount">
-					<input class="target" type="text" inputmode="decimal" autocomplete="off" aria-label="Goal" placeholder="Goal" bind:value={targetText} />
+					<input class="target" type="text" inputmode="decimal" autocomplete="off" aria-label={aim === 'build' ? 'Goal' : 'At most'} placeholder={aim === 'build' ? 'Goal' : 'At most'} bind:value={targetText} />
 					<input class="unit" type="text" autocomplete="off" aria-label="Unit" placeholder="Unit (min, km, …)" bind:value={unit} />
 				</div>
 			{/if}
@@ -172,7 +181,7 @@
 			</div>
 		{/if}
 		{#if kind === 'check' && period !== 'day'}
-			<label for="habit-days">Days per {period}</label>
+			<label for="habit-days">{aim === 'build' ? `Days per ${period}` : `Max days per ${period}`}</label>
 			<div class="row">
 				<input id="habit-days" class="target" type="text" inputmode="numeric" autocomplete="off" bind:value={targetText} />
 			</div>

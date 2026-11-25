@@ -29,8 +29,8 @@ const day = (text: string) => text as CivilDate;
 const D1 = day('2026-11-23');
 const D2 = day('2026-11-24');
 
-const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 30 }, color: '#3a86ff', start: day('2026-11-01') };
-const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', goal: { period: 'week', target: 3 }, color: '#ff006e', start: day('2026-11-01') };
+const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 30 }, color: '#3a86ff', start: day('2026-11-01') };
+const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', goal: { period: 'week', aim: 'build', target: 3 }, color: '#ff006e', start: day('2026-11-01') };
 
 /** A base with two habits and an entry each */
 function setup() {
@@ -154,7 +154,7 @@ describe('merge scenarios', () => {
 		const { base, read, run } = setup();
 		// ours renames (later); theirs renames too, changes the goal and moves it to the end
 		const ours = updateHabit(base, read, { ...READ, name: 'Mine' }, D2, T2);
-		const goal = { period: 'week', target: 200 } as const;
+		const goal = { period: 'week', aim: 'build', target: 200 } as const;
 		const theirs = moveHabit(updateHabit(base, read, { ...READ, name: 'Theirs', goal }, D2, T1), read, null, T1);
 		const result = merge(base, ours, theirs);
 		const kept = result.data.habits.find((h) => h.id === read)!;
@@ -197,7 +197,7 @@ describe('merge scenarios', () => {
 		const theirs = setEntry(empty, read, D2, 25, T2);
 		const result = merge(empty, ours, theirs);
 		// with the amount version's unit and goals, and the check side's rename
-		expect(result.data.habits.find((h) => h.id === read)).toMatchObject({ kind: 'amount', unit: 'min', goals: [{ period: 'day', target: 30 }] });
+		expect(result.data.habits.find((h) => h.id === read)).toMatchObject({ kind: 'amount', unit: 'min', goals: [{ period: 'day', aim: 'build', target: 30 }] });
 		expect(conflictReasons(result)).toEqual(['habit amounts-for-check-habit']);
 		expectValid(result.data);
 		// stable: merging the result again with either side changes nothing

@@ -1,5 +1,5 @@
 <!--
-	One habit's stats over 3 months, a year or all its time: goals met, days done (and the total of
+	One habit's stats over 3 months, a year or all its time: goals met (limits kept), days done (slips) (and the total of
 	an amount), a calendar of small months, and how often it's done per weekday (yes/no habits) or
 	the totals per week or month against the goal (amounts). A tap on a day or bar tells its numbers.
 -->
@@ -70,6 +70,8 @@
 		return list;
 	});
 
+	/** The latest goal limits (the texts follow it; past goals may have built) */
+	const limit = $derived(latestGoal(habit).aim === 'limit');
 	const rate = $derived(rateOf(periodResults(data, habit, from, end, weekStart, today)));
 	const entries = $derived(entriesBetween(entriesByHabit(data).get(habit.id) ?? [], from, end));
 	const total = $derived(entries.reduce((sum, e) => sum + e.value, 0));
@@ -98,8 +100,9 @@
 				key: String(w),
 				label: weekdayName(w),
 				value: days ? (done / days) * 100 : 0,
-				tone: 'full',
-				info: days ? `${weekdayName(w)}: ${done} of ${days} done` : `${weekdayName(w)}: –`,
+				// (slips aren't success: grey)
+				tone: limit ? 'weak' : 'full',
+				info: days ? `${weekdayName(w)}: ${done} of ${days} ${limit ? 'slipped' : 'done'}` : `${weekdayName(w)}: –`,
 			};
 		});
 	});
@@ -119,8 +122,10 @@
 	const amountTicks = $derived(niceTicks(Math.max(0, ...buckets.map((b) => Math.max(b.total, b.target)))));
 	const amountBars = $derived<Bar[]>(
 		buckets.map((b, i) => {
-			const met = b.target > 0 && b.total >= b.target;
+			const met = b.aim === 'build' ? b.target > 0 && b.total >= b.target : b.total <= b.target;
 			const current = b.to >= today;
+			// a limit: kept (full), kept so far (soft), broken (red)
+			const tone = b.aim === 'build' ? (met ? 'full' : current ? 'soft' : 'weak') : !met ? 'bad' : current ? 'soft' : 'full';
 			const name = monthly ? formatMonth(b.from, { year: '2-digit' }) : `Week of ${formatShortDate(b.from)}`;
 			// labels: each month, or a year's first month when there are many
 			const first = monthly ? (buckets.length <= 12 || dateParts(b.from).month === 1) : i === 0 || dateParts(b.from).month !== dateParts(buckets[i - 1]!.from).month;
@@ -130,7 +135,7 @@
 				label,
 				value: b.total,
 				target: b.target,
-				tone: met ? 'full' : current ? 'soft' : 'weak',
+				tone,
 				info: `${name}: ${formatValue(b.total)}${b.target > 0 ? ` / ${withUnit(b.target, habit.unit)}` : habit.unit ? ` ${habit.unit}` : ''}`,
 			};
 		}),
@@ -146,8 +151,8 @@
 		<p class="empty">{startOf(habit) > today ? `Starts on ${formatDate(startOf(habit))}.` : 'Archived before it started.'}</p>
 	{:else}
 		<div class="tiles" style:--tiles={habit.kind === 'amount' ? 3 : 2}>
-			<div class="tile"><b>{rate.counted ? `${Math.round((rate.met / rate.counted) * 100)} %` : '–'}</b><span>goals met</span></div>
-			<div class="tile"><b>{entries.length}</b><span>{entries.length === 1 ? 'day' : 'days'} done</span></div>
+			<div class="tile"><b>{rate.counted ? `${Math.round((rate.met / rate.counted) * 100)} %` : '–'}</b><span>{limit ? 'limits kept' : 'goals met'}</span></div>
+			<div class="tile"><b>{entries.length}</b><span>{limit && habit.kind === 'check' ? (entries.length === 1 ? 'slip' : 'slips') : `${entries.length === 1 ? 'day' : 'days'} ${limit ? 'logged' : 'done'}`}</span></div>
 			{#if habit.kind === 'amount'}<div class="tile"><b>{withUnit(total >= 100 ? Math.round(total) : Math.round(total * 1000) / 1000, habit.unit)}</b><span>total</span></div>{/if}
 		</div>
 
@@ -178,12 +183,16 @@
 		<p class="info" aria-live="polite">{dayInfo ?? 'Tap a day to see it.'}</p>
 
 		{#if habit.kind === 'check'}
-			<h3>Done by weekday (%)</h3>
-			<BarChart bars={byWeekday} max={100} values={(v) => String(Math.round(v))} label="Done by weekday" oninfo={(i) => (chartInfo = i)} />
+			<h3>{limit ? 'Slipped' : 'Done'} by weekday (%)</h3>
+			<BarChart bars={byWeekday} max={100} values={(v) => String(Math.round(v))} label={`${limit ? 'Slipped' : 'Done'} by weekday`} oninfo={(i) => (chartInfo = i)} />
 		{:else}
 			<h3>Per {monthly ? 'month' : 'week'}{habit.unit ? ` (${habit.unit})` : ''}</h3>
 			<BarChart bars={amountBars} max={amountTicks.at(-1)!} ticks={amountTicks} label={`Totals per ${monthly ? 'month' : 'week'}`} oninfo={(i) => (chartInfo = i)} />
-			<p class="legend"><i class="full"></i>goal met <i class="weak"></i>below <i class="line"></i>goal</p>
+			{#if limit}
+				<p class="legend"><i class="full"></i>within <i class="bad"></i>over <i class="line"></i>limit</p>
+			{:else}
+				<p class="legend"><i class="full"></i>goal met <i class="weak"></i>below <i class="line"></i>goal</p>
+			{/if}
 		{/if}
 		<p class="info" aria-live="polite">{chartInfo ?? 'Tap a bar to see it.'}</p>
 	{/if}
@@ -307,6 +316,9 @@
 	}
 	.legend .weak {
 		background: color-mix(in srgb, var(--muted) 55%, transparent);
+	}
+	.legend .bad {
+		background: var(--negative);
 	}
 	.legend .line {
 		height: 2px;

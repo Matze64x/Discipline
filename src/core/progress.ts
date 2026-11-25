@@ -52,9 +52,23 @@ export interface Progress {
 	readonly due: boolean;
 	/** Check habits: the days done; amount habits: the total */
 	readonly done: number;
-	/** What the goal asks for in the period. Check habits per month: at most the days the month has. */
+	/** What the goal asks for in the period (a limit: what it allows). Check habits building per month: at most the days the month has. */
 	readonly target: number;
+	/** At least the target (`build`), or at most the target so far (`limit`: can still break) */
 	readonly met: boolean;
+}
+
+/**
+ * Whether a period's result is final on `today`: it's over, or it can't change any more (a goal
+ * to build is met, a limit is broken). Until then, it's open: neither met nor missed.
+ */
+export function isSettled(progress: Pick<Progress, 'goal' | 'to' | 'met'>, today: CivilDate): boolean {
+	return progress.to < today || decidedEarly(progress);
+}
+
+/** Whether a period's result is final before it's over: a goal to build met, a limit broken */
+export function decidedEarly(progress: Pick<Progress, 'goal' | 'met'>): boolean {
+	return progress.goal.aim === 'build' ? progress.met : !progress.met;
 }
 
 /** The period of a goal that contains `date` */
@@ -79,15 +93,15 @@ export function progressOn(data: DisciplineData, habit: Habit, date: CivilDate, 
 	const entries = entriesBetween(entriesByHabit(data).get(habit.id) ?? [], from, to);
 	const done = Math.round(entries.reduce((sum, e) => sum + e.value, 0) * 1000) / 1000;
 	let target = goal.target;
-	if (goal.period === 'month' && habit.kind === 'check') {
+	if (goal.period === 'month' && habit.kind === 'check' && goal.aim === 'build') {
 		const { year, month } = dateParts(date);
 		target = Math.min(target, daysInMonth(year, month));
 	}
 	const due = goal.period !== 'day' || goal.days.includes(weekday(date));
-	return { goal, from, to, due, done, target, met: done >= target };
+	return { goal, from, to, due, done, target, met: goal.aim === 'build' ? done >= target : done <= target };
 }
 
-/** A day of a daily goal: met, missed (due, past, not met), not due (or the habit wasn't active), or still open */
+/** A day of a daily goal: met, missed (due, not met, settled), not due (or the habit wasn't active), or still open (see `isSettled`) */
 export type DayMark = 'done' | 'missed' | 'off' | 'open';
 
 /**
@@ -99,8 +113,8 @@ export function dayMarks(data: DisciplineData, habit: Habit, days: readonly Civi
 		// (the week start doesn't matter for a single day's goal)
 		const progress = progressOn(data, habit, d, 1);
 		if (!progress || !progress.due || progress.goal.period !== 'day') return 'off';
-		if (progress.met) return 'done';
-		return d < today ? 'missed' : 'open';
+		if (!isSettled(progress, today)) return 'open';
+		return progress.met ? 'done' : 'missed';
 	});
 }
 
@@ -111,12 +125,16 @@ export function timeShare(period: Pick<Progress, 'from' | 'to'>, today: CivilDat
 	return (daysBetween(period.from, today) + 1) / (daysBetween(period.from, period.to) + 1);
 }
 
-/** How many of the daily goals due on `date` were met (habits with weekly or monthly goals aside) */
-export function dayShare(data: DisciplineData, date: CivilDate): { met: number; due: number } {
+/**
+ * How many of the daily goals due on `date` were met (habits with weekly or monthly goals aside).
+ * A limit still kept on `today` doesn't count yet (it can still break); one to build does (as not met).
+ */
+export function dayShare(data: DisciplineData, date: CivilDate, today: CivilDate): { met: number; due: number } {
 	let [met, due] = [0, 0];
 	for (const habit of data.habits) {
 		const progress = progressOn(data, habit, date, 1);
 		if (!progress || progress.goal.period !== 'day' || !progress.due) continue;
+		if (progress.goal.aim === 'limit' && !isSettled(progress, today)) continue;
 		due++;
 		if (progress.met) met++;
 	}

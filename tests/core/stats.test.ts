@@ -25,9 +25,9 @@ const T = 1_800_000_000 as UtcSeconds;
 const day = (s: string) => s as CivilDate;
 
 // Mon 2.11.2026
-const MEDITATE: HabitDraft = { name: 'Meditate', kind: 'check', unit: '', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 1 } };
-const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5], target: 30 } };
-const RUN: HabitDraft = { name: 'Run', kind: 'amount', unit: 'km', color: '#ff006e', start: day('2026-11-02'), goal: { period: 'week', target: 21 } };
+const MEDITATE: HabitDraft = { name: 'Meditate', kind: 'check', unit: '', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 1 } };
+const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5], aim: 'build', target: 30 } };
+const RUN: HabitDraft = { name: 'Run', kind: 'amount', unit: 'km', color: '#ff006e', start: day('2026-11-02'), goal: { period: 'week', aim: 'build', target: 21 } };
 
 function make(draft: HabitDraft): { data: DisciplineData; id: Id } {
 	return addHabit(EMPTY_DATA, draft, T);
@@ -62,8 +62,8 @@ describe('periodResults', () => {
 		const habit = () => data.habits[0]!;
 		const results = periodResults(data, habit(), day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-18'));
 		expect(results).toEqual([
-			{ from: '2026-11-02', to: '2026-11-08', done: 21, target: 21, met: true },
-			{ from: '2026-11-09', to: '2026-11-15', done: 5, target: 21, met: false },
+			{ aim: 'build', from: '2026-11-02', to: '2026-11-08', done: 21, target: 21, met: true },
+			{ aim: 'build', from: '2026-11-09', to: '2026-11-15', done: 5, target: 21, met: false },
 		]);
 		data = setEntry(data, id, day('2026-11-17'), 30, T);
 		expect(periodResults(data, habit(), day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-18'))).toHaveLength(3);
@@ -73,7 +73,7 @@ describe('periodResults', () => {
 		let { data, id } = make(MEDITATE);
 		data = checks(data, id, ['2026-11-02', '2026-11-03']);
 		// from Wed 4.11. on: twice a week
-		data = updateHabit(data, id, { ...MEDITATE, goal: { period: 'week', target: 2 } }, day('2026-11-04'), T);
+		data = updateHabit(data, id, { ...MEDITATE, goal: { period: 'week', aim: 'build', target: 2 } }, day('2026-11-04'), T);
 		data = checks(data, id, ['2026-11-10', '2026-11-12']);
 		const results = periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-20'));
 		expect(results.map((r) => [r.from, r.to, r.met])).toEqual([
@@ -84,7 +84,7 @@ describe('periodResults', () => {
 	});
 
 	it('archived within a week: that week counts only if it was met', () => {
-		let { data, id } = make({ ...MEDITATE, goal: { period: 'week', target: 3 } });
+		let { data, id } = make({ ...MEDITATE, goal: { period: 'week', aim: 'build', target: 3 } });
 		data = checks(data, id, ['2026-11-02', '2026-11-03', '2026-11-09', '2026-11-10', '2026-11-11']);
 		data = setArchived(data, id, day('2026-11-06'), T);
 		expect(periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-20'))).toEqual([]);
@@ -96,7 +96,7 @@ describe('periodResults', () => {
 	});
 
 	it('monthly goals, and weeks from Sunday', () => {
-		let { data, id } = make({ ...MEDITATE, start: day('2026-01-01'), goal: { period: 'month', target: 31 } });
+		let { data, id } = make({ ...MEDITATE, start: day('2026-01-01'), goal: { period: 'month', aim: 'build', target: 31 } });
 		for (let d = 1; d <= 28; d++) data = toggleCheck(data, id, day(`2026-02-${String(d).padStart(2, '0')}`), T);
 		const results = periodResults(data, data.habits[0]!, day('2026-01-01'), day('2026-03-31'), 7, day('2026-03-15'));
 		// February asks for its 28 days at most
@@ -158,7 +158,7 @@ describe('dayCell', () => {
 	});
 
 	it('monthly goals: a day’s share of the month', () => {
-		let { data, id } = make({ ...RUN, goal: { period: 'month', target: 60 } });
+		let { data, id } = make({ ...RUN, goal: { period: 'month', aim: 'build', target: 60 } });
 		data = setEntry(data, id, day('2026-11-03'), 1, T);
 		expect(dayCell(data, data.habits[0]!, day('2026-11-03'), day('2026-11-20'))).toEqual({ state: 'free', value: 1, fill: 0.5 });
 	});
@@ -175,7 +175,7 @@ describe('dayCell', () => {
 
 describe('weekdayShares', () => {
 	it('counts due days per weekday, today only once done', () => {
-		let { data, id } = make({ ...MEDITATE, goal: { period: 'day', days: [1, 3], target: 1 } });
+		let { data, id } = make({ ...MEDITATE, goal: { period: 'day', days: [1, 3], aim: 'build', target: 1 } });
 		data = checks(data, id, ['2026-11-02', '2026-11-09', '2026-11-11']);
 		const shares = weekdayShares(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), day('2026-11-16'));
 		// Mondays 2., 9. done, 16. (today) open; Wednesdays 4. missed, 11. done
@@ -193,8 +193,8 @@ describe('amountBuckets', () => {
 		const week = (from: string, to: string) => ({ from: day(from), to: day(to) });
 		// the first bucket starts before the habit: only its days count
 		expect(amountBuckets(data, data.habits[0]!, [week('2026-10-26', '2026-11-08'), week('2026-11-09', '2026-11-15')], 1)).toEqual([
-			{ from: '2026-10-26', to: '2026-11-08', total: 42.5, target: 150 },
-			{ from: '2026-11-09', to: '2026-11-15', total: 0, target: 150 },
+			{ from: '2026-10-26', to: '2026-11-08', total: 42.5, target: 150, aim: 'build' },
+			{ from: '2026-11-09', to: '2026-11-15', total: 0, target: 150, aim: 'build' },
 		]);
 		const run = make(RUN);
 		const firstWeek = amountBuckets(run.data, run.data.habits[0]!, [{ from: day('2026-11-02'), to: day('2026-11-08') }], 1);
@@ -204,7 +204,7 @@ describe('amountBuckets', () => {
 	it('a week of a weekly goal asks what the rates ask: the whole target, from the goal owning it', () => {
 		// started on a Wednesday: the first week still asks for 21
 		let { data, id } = make({ ...RUN, start: day('2026-11-04') });
-		data = updateHabit(data, id, { ...RUN, start: day('2026-11-04'), goal: { period: 'week', target: 35 } }, day('2026-11-12'), T);
+		data = updateHabit(data, id, { ...RUN, start: day('2026-11-04'), goal: { period: 'week', aim: 'build', target: 35 } }, day('2026-11-12'), T);
 		const weeks = [day('2026-11-02'), day('2026-11-09')].map((w) => ({ from: w, to: addDays(w, 6) }));
 		expect(amountBuckets(data, data.habits[0]!, weeks, 1).map((b) => b.target)).toEqual([21, 35]);
 		// daily days and weeks mixed in a month: the days' shares
@@ -223,8 +223,8 @@ describe('on random data', () => {
 				expect(met).toBeLessThanOrEqual(counted);
 				for (let i = 1; i < results.length; i++) if (!(results[i]!.from > results[i - 1]!.to)) throw new Error(JSON.stringify([habit.goals, habit.archived, results[i - 1], results[i]]));
 				for (const r of results) {
-					// nothing open counts unless met, nothing after the archive day unless met
-					if (r.to >= '2060-06-15' || (habit.archived !== null && r.to >= habit.archived)) expect(r.met).toBe(true);
+					// nothing open counts unless decided early (built: met, limited: broken), nor after the archive day
+					if (r.to >= '2060-06-15' || (habit.archived !== null && r.to >= habit.archived)) expect(r.met).toBe(r.aim === 'build');
 					if (habit.archived !== null) expect(r.from < habit.archived).toBe(true);
 				}
 			}
@@ -234,10 +234,10 @@ describe('on random data', () => {
 
 describe('goal changes within a period', () => {
 	it('the new goal takes the whole week, the old one’s part of it doesn’t count', () => {
-		let { data, id } = make({ ...MEDITATE, goal: { period: 'week', target: 3 } });
+		let { data, id } = make({ ...MEDITATE, goal: { period: 'week', aim: 'build', target: 3 } });
 		data = checks(data, id, ['2026-11-02', '2026-11-03', '2026-11-04']);
 		// from Wed 4.11. on: 4 a week, then from Mon 16. daily
-		data = updateHabit(data, id, { ...MEDITATE, goal: { period: 'week', target: 4 } }, day('2026-11-04'), T);
+		data = updateHabit(data, id, { ...MEDITATE, goal: { period: 'week', aim: 'build', target: 4 } }, day('2026-11-04'), T);
 		data = updateHabit(data, id, MEDITATE, day('2026-11-18'), T);
 		const results = periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-20'));
 		expect(results.map((r) => [r.from, r.target, r.met])).toEqual([
@@ -247,5 +247,60 @@ describe('goal changes within a period', () => {
 			['2026-11-18', 1, false],
 			['2026-11-19', 1, false],
 		]);
+	});
+});
+
+describe('limits', () => {
+	const SMOKE: HabitDraft = { name: 'Smoke', kind: 'check', unit: '', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'limit', target: 0 } };
+
+	it('a period counts once over or broken; slips by weekday', () => {
+		let { data, id } = make(SMOKE);
+		data = checks(data, id, ['2026-11-03', '2026-11-05']);
+		const today = day('2026-11-05');
+		// Mon kept, Tue broken, Wed kept, Thu (today) broken already
+		const results = periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, today);
+		expect(results.map((r) => [r.from, r.met])).toEqual([
+			['2026-11-02', true],
+			['2026-11-03', false],
+			['2026-11-04', true],
+			['2026-11-05', false],
+		]);
+		expect(dayCell(data, data.habits[0]!, day('2026-11-02'), today)).toEqual({ state: 'met', value: 0, fill: 1 });
+		expect(dayCell(data, data.habits[0]!, day('2026-11-03'), today)).toEqual({ state: 'missed', value: 1, fill: 0 });
+		const shares = weekdayShares(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), today);
+		expect([shares[1], shares[2], shares[4]]).toEqual([
+			{ done: 0, days: 1 },
+			{ done: 1, days: 1 },
+			{ done: 1, days: 1 },
+		]);
+	});
+
+	it('a weekly limit: kept weeks count once over, a broken one at once; clean days fill', () => {
+		let { data, id } = make({ ...SMOKE, goal: { period: 'week', aim: 'limit', target: 1 } });
+		data = checks(data, id, ['2026-11-03', '2026-11-10', '2026-11-11']);
+		const results = periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-12'));
+		expect(results.map((r) => [r.from, r.met])).toEqual([
+			['2026-11-02', true],
+			['2026-11-09', false],
+		]);
+		expect(dayCell(data, data.habits[0]!, day('2026-11-02'), day('2026-11-12'))).toEqual({ state: 'free', value: 0, fill: 1 });
+		expect(dayCell(data, data.habits[0]!, day('2026-11-03'), day('2026-11-12')).fill).toBe(0);
+		// a kept week archived midway doesn't count
+		data = setArchived(data, id, day('2026-11-05'), T);
+		expect(periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-12'))).toEqual([]);
+	});
+
+	it('a limit that starts within a week takes that whole week: earlier days there count against it', () => {
+		let { data, id } = make({ ...SMOKE, goal: { period: 'week', aim: 'build', target: 2 } });
+		data = checks(data, id, ['2026-11-02', '2026-11-03']);
+		// from Wed 4.11.: at most once a week
+		data = updateHabit(data, id, { ...SMOKE, goal: { period: 'week', aim: 'limit', target: 1 } }, day('2026-11-04'), T);
+		const results = periodResults(data, data.habits[0]!, day('2026-11-01'), day('2026-11-30'), 1, day('2026-11-12'));
+		expect(results.map((r) => [r.aim, r.from, r.done, r.met])).toEqual([['limit', '2026-11-02', 2, false]]);
+	});
+
+	it('amount buckets know their aim', () => {
+		const { data } = make({ ...RUN, goal: { period: 'week', aim: 'limit', target: 10 } });
+		expect(amountBuckets(data, data.habits[0]!, [{ from: day('2026-11-02'), to: day('2026-11-08') }], 1)[0]).toMatchObject({ target: 10, aim: 'limit' });
 	});
 });

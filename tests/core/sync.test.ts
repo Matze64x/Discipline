@@ -6,10 +6,10 @@ const day = (s: string) => s as CivilDate;
 
 describe('change summaries', () => {
 	it('count added, changed and deleted records per kind', () => {
-		const draft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-01'), goal: { period: 'week', target: 100 } } as const;
+		const draft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-01'), goal: { period: 'week', aim: 'build', target: 100 } } as const;
 		const a = addHabit(EMPTY_DATA, draft, T);
 		const before = setEntry(setEntry(a.data, a.id, day('2026-11-02'), 10, T), a.id, day('2026-11-03'), 20, T);
-		const b = addHabit(before, { ...draft, name: 'Run', kind: 'check', unit: '', goal: { period: 'week', target: 3 } }, T);
+		const b = addHabit(before, { ...draft, name: 'Run', kind: 'check', unit: '', goal: { period: 'week', aim: 'build', target: 3 } }, T);
 		let after = updateHabit(b.data, a.id, { ...draft, name: 'Read books' }, day('2026-11-24'), T);
 		after = setEntry(after, a.id, day('2026-11-02'), 15, T);
 		after = setEntry(after, a.id, day('2026-11-03'), null, T);

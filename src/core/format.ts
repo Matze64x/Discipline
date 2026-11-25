@@ -3,10 +3,10 @@
  * devices send each other when they sync.
  *
  * {
- * 	"version": 2,
+ * 	"version": 3,
  * 	"preferences": {"dayStart": 0, "weekStart": 1, "edited": null},
  * 	"habits": [
- * 		{"id": "…", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-24", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}
+ * 		{"id": "…", "name": "Read", "kind": "amount", "unit": "min", "goals": [{"from": "2026-11-24", "period": "day", "days": [1, 2, 3, 4, 5, 6, 7], "aim": "build", "target": 30}], "color": "#3a86ff", "position": 1, "archived": null, "edited": "2026-11-24T20:15:00Z"}
  * 	],
  * 	"entries": [
  * 		{"habit": "…", "date": "2026-11-24", "value": 45, "edited": "2026-11-24T20:15:00Z"}
@@ -16,8 +16,8 @@
  * One record per line, sorted, so the same data always gives the same text (also used to compare
  * data by hash when syncing) and files diff well. The parser accepts exactly what the edit
  * operations can produce (e.g. names already cleaned), so loading never changes data by itself.
- * Version 1 (before the preferences were part of the data) is still read: its data gets the
- * default preferences.
+ * Versions 1 (before the preferences were part of the data: the defaults) and 2 (before goals had
+ * an `aim`: all build) are still read.
  */
 import { formatTimestamp, isCivilDate, MAX_YEAR, MIN_YEAR, parseTimestamp, WEEKDAYS, type CivilDate, type UtcSeconds, type Weekday } from './dates';
 import { parseId, type Id } from './ids';
@@ -41,15 +41,16 @@ import {
 	type DatedGoal,
 	type DisciplineData,
 	type Entry,
+	type Aim,
 	type Goal,
 	type Habit,
 	type HabitKind,
 	type Preferences,
 } from './model';
 
-export const FORMAT_VERSION = 2;
-/** Older versions that are still read */
-const READABLE_VERSIONS: readonly number[] = [1, FORMAT_VERSION];
+export const FORMAT_VERSION = 3;
+/** Older versions that are still read (1: no preferences; 1 and 2: no `aim`, every goal builds) */
+const READABLE_VERSIONS: readonly number[] = [1, 2, FORMAT_VERSION];
 
 export interface Issue {
 	/** Location in the file, e.g. `entries[3].value` */
@@ -63,7 +64,8 @@ export type ParseResult =
 
 const PREFERENCES_KEYS = ['dayStart', 'weekStart', 'edited'];
 const HABIT_KEYS = ['id', 'name', 'kind', 'unit', 'goals', 'color', 'position', 'archived', 'edited'];
-const GOAL_KEYS = ['from', 'period', 'days', 'target'];
+const GOAL_KEYS = ['from', 'period', 'days', 'aim', 'target'];
+const OLD_GOAL_KEYS = ['from', 'period', 'days', 'target'];
 const ENTRY_KEYS = ['habit', 'date', 'value', 'edited'];
 const DATE_FORMAT = `date (expected YYYY-MM-DD, years ${MIN_YEAR}–${MAX_YEAR})`;
 const TIMESTAMP_FORMAT = `timestamp (expected YYYY-MM-DDTHH:MM:SSZ, years ${MIN_YEAR}–${MAX_YEAR})`;
@@ -138,39 +140,45 @@ class Parser {
 		return this.field(object, key, path, parseTimestamp, TIMESTAMP_FORMAT);
 	}
 
-	/** `kind` null: the habit's kind is invalid (reported already), so the goal can't be checked against it */
-	goal(value: unknown, path: string, kind: HabitKind | null): DatedGoal | null {
-		const object = this.object(value, path, GOAL_KEYS);
+	/**
+	 * `kind` null: the habit's kind is invalid (reported already), so the goal can't be checked
+	 * against it. `version`: the file's (before 3, goals have no `aim`: they build).
+	 */
+	goal(value: unknown, path: string, kind: HabitKind | null, version: number): DatedGoal | null {
+		const object = this.object(value, path, version < 3 ? OLD_GOAL_KEYS : GOAL_KEYS);
 		if (!object) return null;
 		const from = this.date(object, 'from', path);
 		const period = this.string(object, 'period', path);
+		const aim = version < 3 ? 'build' : this.field(object, 'aim', path, (t): Aim | null => (t === 'build' || t === 'limit' ? t : null), 'aim (expected "build" or "limit")');
 		const target = this.number(object, 'target', path);
-		if (from === null || period === null || target === null) return null;
+		if (from === null || period === null || aim === null || target === null) return null;
 		let goal: Goal;
 		if (period === 'day') {
 			const days = this.array(object, 'days', path);
 			if (days === null) return null;
 			if (!days.every((d): d is Weekday => typeof d === 'number' && (WEEKDAYS as readonly number[]).includes(d))) return this.error(join(path, 'days'), 'Must be weekdays (1 = Monday … 7 = Sunday)');
-			goal = { period, days, target };
+			goal = { period, days, aim, target };
 		} else if (period === 'week' || period === 'month') {
 			if ('days' in object) return this.error(join(path, 'days'), 'Only a daily goal has days');
-			goal = { period, target };
+			goal = { period, aim, target };
 		} else return this.error(join(path, 'period'), `Must be "day", "week" or "month", not "${period}"`);
 		if (kind !== null && !isValidGoal(goal, kind)) {
+			const amount = aim === 'build' ? 'positive with at most 3 decimals' : '0, or positive with at most 3 decimals';
+			const days = goal.period === 'day' ? '' : `a whole number of days from ${aim === 'build' ? 1 : 0} to ${PERIOD_DAYS[goal.period]}`;
 			const expected =
 				goal.period === 'day'
-					? `weekdays ascending without repeats, and a target that is ${kind === 'check' ? '1' : 'positive with at most 3 decimals'}`
-					: `a target that is ${kind === 'check' ? `a whole number of days from 1 to ${PERIOD_DAYS[goal.period]}` : 'positive with at most 3 decimals'}`;
+					? `weekdays ascending without repeats, and a target that is ${kind === 'check' ? (aim === 'build' ? '1' : '0') : amount}`
+					: `a target that is ${kind === 'check' ? days : amount}`;
 			return this.error(path, `Invalid goal: expected ${expected}`);
 		}
 		return { from, ...goal };
 	}
 
-	goals(object: JsonObject, path: string, kind: HabitKind | null): DatedGoal[] | null {
+	goals(object: JsonObject, path: string, kind: HabitKind | null, version: number): DatedGoal[] | null {
 		const values = this.array(object, 'goals', path);
 		if (values === null) return null;
 		if (values.length === 0) return this.error(join(path, 'goals'), 'Must have at least one goal');
-		const goals = values.map((value, i) => this.goal(value, `${join(path, 'goals')}[${i}]`, kind));
+		const goals = values.map((value, i) => this.goal(value, `${join(path, 'goals')}[${i}]`, kind, version));
 		if (!goals.every((g) => g !== null)) return null;
 		const unsorted = goals.findIndex((g, i) => i > 0 && g.from <= goals[i - 1]!.from);
 		if (unsorted !== -1) return this.error(`${join(path, 'goals')}[${unsorted}].from`, 'Must be later than the goal before');
@@ -178,14 +186,14 @@ class Parser {
 	}
 
 	/** `seen`: the ids of all habits so far, with their kind if the habit is valid enough to know it */
-	habit(value: unknown, path: string, seen: Map<Id, HabitKind | null>): Habit | null {
+	habit(value: unknown, path: string, seen: Map<Id, HabitKind | null>, version: number): Habit | null {
 		const object = this.object(value, path, HABIT_KEYS);
 		if (!object) return null;
 		const id = this.field(object, 'id', path, parseId, 'id');
 		const name = this.text(object, 'name', path);
 		const kind = this.field(object, 'kind', path, (t): HabitKind | null => (t === 'check' || t === 'amount' ? t : null), 'kind (expected "check" or "amount")');
 		const unit = this.text(object, 'unit', path);
-		const goals = this.goals(object, path, kind);
+		const goals = this.goals(object, path, kind, version);
 		const color = this.field(object, 'color', path, (t) => (isColor(t) ? t : null), 'color (expected #rrggbb, lowercase)');
 		const position = this.number(object, 'position', path);
 		const archived = object['archived'] === null ? null : this.date(object, 'archived', path);
@@ -269,7 +277,7 @@ export function parseDiscipline(content: string): ParseResult {
 	const preferences = version === 1 ? DEFAULT_PREFERENCES : p.preferences(root['preferences'], 'preferences');
 
 	const seen = new Map<Id, HabitKind | null>();
-	const habits = (p.array(root, 'habits', '') ?? []).map((value, i) => p.habit(value, `habits[${i}]`, seen));
+	const habits = (p.array(root, 'habits', '') ?? []).map((value, i) => p.habit(value, `habits[${i}]`, seen, version));
 	const keys = new Set<string>();
 	const entries = (p.array(root, 'entries', '') ?? []).map((value, i) => p.entry(value, `entries[${i}]`, seen, keys));
 
@@ -281,7 +289,7 @@ export function parseDiscipline(content: string): ParseResult {
 // ------------------------------------------------------------------------------------- writing
 
 function goalToJson(g: DatedGoal) {
-	return g.period === 'day' ? { from: g.from, period: g.period, days: g.days, target: g.target } : { from: g.from, period: g.period, target: g.target };
+	return g.period === 'day' ? { from: g.from, period: g.period, days: g.days, aim: g.aim, target: g.target } : { from: g.from, period: g.period, aim: g.aim, target: g.target };
 }
 
 function preferencesToJson(p: Preferences): string {

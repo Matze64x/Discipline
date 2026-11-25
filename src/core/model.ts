@@ -12,16 +12,24 @@ import { WEEKDAYS, type CivilDate, type UtcSeconds, type Weekday } from './dates
 export type HabitKind = 'check' | 'amount';
 
 /**
+ * - `build`: at least the target counts as success (do something)
+ * - `limit`: at most the target counts as success (do less of something, or nothing at all: a day
+ *   without an entry is a clean day). The target can be 0.
+ */
+export type Aim = 'build' | 'limit';
+
+/**
  * What counts as success:
- * - `day`: on each of the given weekdays (all seven: every day). A check habit must be done; an
- *   amount habit must reach `target` on the day (for a check habit, `target` is 1).
- * - `week` / `month`: `target` within each week or month. A check habit: on that many days (in a
- *   month with fewer days, all of them); an amount habit: that much in total. Which day a week
- *   starts on is a per-device setting, so weekly results can differ between devices that differ there.
+ * - `day`: on each of the given weekdays (all seven: every day). A check habit must be done
+ *   (`build`, `target` 1) or not done (`limit`, `target` 0); an amount habit must reach (or stay
+ *   within) `target` on the day.
+ * - `week` / `month`: `target` within each week or month. A check habit: on at least (at most) that
+ *   many days (a build target above the month's days asks for all of them); an amount habit: that
+ *   much in total. Which day a week starts on is a setting of the data (`Preferences`).
  */
 export type Goal =
-	| { readonly period: 'day'; readonly days: readonly Weekday[]; readonly target: number }
-	| { readonly period: 'week' | 'month'; readonly target: number };
+	| { readonly period: 'day'; readonly days: readonly Weekday[]; readonly aim: Aim; readonly target: number }
+	| { readonly period: 'week' | 'month'; readonly aim: Aim; readonly target: number };
 
 /** A goal that applies from a day on (until the next one's `from`) */
 export type DatedGoal = Goal & { readonly from: CivilDate };
@@ -156,10 +164,13 @@ export const PERIOD_DAYS = { week: 7, month: 31 } as const;
 
 /** Whether a goal is valid for a habit of the given kind */
 export function isValidGoal(goal: Goal, kind: HabitKind): boolean {
-	if (!isEntryValue(goal.target)) return false;
+	if (goal.aim !== 'build' && goal.aim !== 'limit') return false;
+	const limit = goal.aim === 'limit';
+	// a limit can be 0 (none at all); -0 is never stored
+	if (!(isEntryValue(goal.target) || (limit && Object.is(goal.target, 0)))) return false;
 	if (goal.period === 'day') {
 		const sorted = goal.days.every((d, i) => WEEKDAYS.includes(d) && (i === 0 || d > goal.days[i - 1]!));
-		return sorted && goal.days.length > 0 && (kind === 'amount' || goal.target === 1);
+		return sorted && goal.days.length > 0 && (kind === 'amount' || goal.target === (limit ? 0 : 1));
 	}
 	return kind === 'amount' || (Number.isInteger(goal.target) && goal.target <= PERIOD_DAYS[goal.period]);
 }

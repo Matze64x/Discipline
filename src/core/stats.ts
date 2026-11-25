@@ -3,16 +3,17 @@
  * habit is done on each weekday, and amount totals per week or month. Pure functions of the data,
  * like `progress.ts` (which they build on).
  *
- * A goal period counts once it's over, or earlier when it's met already (an open day or week isn't
- * missed yet). Periods are those of the goal in effect on their days (`goalOn`), so a changed goal
+ * A goal period counts once it's settled (`isSettled`): over, or decided early (a goal to build met,
+ * a limit broken). An open day or week is neither met nor missed yet. Periods are those of the goal in effect on their days (`goalOn`), so a changed goal
  * keeps the past as it was; a goal that changes within a week or month takes that whole period.
- * A habit archived within a week or month: that period counts only if it was met.
+ * A habit archived within a week or month: that period counts only if it was decided early.
  */
 import { addDays, daysBetween, daysInMonth, dateParts, weekday, WEEKDAYS, type CivilDate, type Weekday } from './dates';
-import { goalOn, startOf, type DisciplineData, type Habit } from './model';
-import { entriesBetween, entriesByHabit, isActiveOn, periodOf, progressOn } from './progress';
+import { goalOn, startOf, type Aim, type DisciplineData, type Habit } from './model';
+import { decidedEarly, entriesBetween, entriesByHabit, isActiveOn, isSettled, periodOf, progressOn } from './progress';
 
 export interface PeriodResult {
+	readonly aim: Aim;
 	readonly from: CivilDate;
 	readonly to: CivilDate;
 	readonly done: number;
@@ -25,7 +26,7 @@ const maxDate = (a: CivilDate, b: CivilDate) => (a > b ? a : b);
 const round = (value: number) => Math.round(value * 1000) / 1000;
 
 /**
- * The goal periods of a habit that overlap `from`…`to` and count by `today` (over, or met already),
+ * The goal periods of a habit that overlap `from`…`to` and count by `today` (settled),
  * in date order. Days a daily goal doesn't ask for aren't periods.
  */
 export function periodResults(data: DisciplineData, habit: Habit, from: CivilDate, to: CivilDate, weekStart: Weekday, today: CivilDate): PeriodResult[] {
@@ -41,10 +42,10 @@ export function periodResults(data: DisciplineData, habit: Habit, from: CivilDat
 		const nextGoal = habit.goals.find((g) => g.from > d);
 		const superseded = habit.goals.some((g) => g.from > d && periodOf(g, g.from, weekStart).from <= progress.to);
 		const next = superseded ? nextGoal!.from : goal.period === 'day' ? addDays(d, 1) : addDays(progress.to, 1);
-		// archived within a week or month: that period only counts if it was met
-		const cut = habit.archived !== null && progress.to >= habit.archived && !progress.met;
-		if (!superseded && !cut && progress.due && (progress.met || progress.to < today)) {
-			results.push({ from: progress.from, to: progress.to, done: progress.done, target: progress.target, met: progress.met });
+		// archived within a week or month: that period only counts if it was decided before
+		const cut = habit.archived !== null && progress.to >= habit.archived && !decidedEarly(progress);
+		if (!superseded && !cut && progress.due && isSettled(progress, today)) {
+			results.push({ aim: goal.aim, from: progress.from, to: progress.to, done: progress.done, target: progress.target, met: progress.met });
 		}
 		d = next;
 	}
@@ -78,7 +79,7 @@ export function weekShares(data: DisciplineData, weeks: readonly CivilDate[], we
 /**
  * A day of a habit, for its calendar:
  * - `inactive`: before its start, archived, or still to come
- * - `met`, `missed`, `open` (today, not met yet), `notDue`: a day of a daily goal
+ * - `met`, `missed`, `open` (not settled yet), `notDue`: a day of a daily goal
  * - `free`: a day of a weekly or monthly goal (done or not, it isn't missed on its own)
  */
 export interface DayCell {
@@ -87,7 +88,9 @@ export interface DayCell {
 	readonly value: number;
 	/**
 	 * How much of what the day asks for was done, 0…1: check habits 1 if done; amounts against the
-	 * daily target, or against the share of a weekly or monthly target that falls on one day
+	 * daily target, or against the share of a weekly or monthly target that falls on one day.
+	 * Limits: 1 for a day kept (within a daily limit, or nothing under a weekly or monthly one; today
+	 * only once over), else 0.
 	 */
 	readonly fill: number;
 }
@@ -98,9 +101,14 @@ export function dayCell(data: DisciplineData, habit: Habit, date: CivilDate, tod
 	if (!progress) return { state: 'inactive', value: 0, fill: 0 };
 	const value = entriesBetween(entriesByHabit(data).get(habit.id) ?? [], date, date)[0]?.value ?? 0;
 	const { goal } = progress;
+	if (goal.aim === 'limit') {
+		if (goal.period !== 'day') return { state: 'free', value, fill: value === 0 && date < today ? 1 : 0 };
+		const state = !progress.due ? 'notDue' : !isSettled(progress, today) ? 'open' : progress.met ? 'met' : 'missed';
+		return { state, value, fill: state === 'met' ? 1 : 0 };
+	}
 	if (goal.period === 'day') {
 		const fill = progress.met ? 1 : habit.kind === 'check' ? (value > 0 ? 1 : 0) : Math.min(1, value / goal.target);
-		const state = !progress.due ? 'notDue' : progress.met ? 'met' : date < today ? 'missed' : 'open';
+		const state = !progress.due ? 'notDue' : !isSettled(progress, today) ? 'open' : progress.met ? 'met' : 'missed';
 		return { state, value, fill };
 	}
 	const perDay = goal.target / (daysBetween(progress.from, progress.to) + 1);
@@ -109,7 +117,9 @@ export function dayCell(data: DisciplineData, habit: Habit, date: CivilDate, tod
 
 /**
  * On each weekday from `from` to `to` (up to `today`): on how many of the days the habit was active
- * (and due, for a daily goal) it was done (met, for a daily amount goal). Today counts once done.
+ * (and due, for a daily goal) it was done (met, for a daily amount goal). Under a limit, "done" is
+ * a slip: a daily limit broken, or anything entered under a weekly or monthly one. Today counts
+ * once done.
  */
 export function weekdayShares(data: DisciplineData, habit: Habit, from: CivilDate, to: CivilDate, today: CivilDate): Record<Weekday, { done: number; days: number }> {
 	const shares = Object.fromEntries(WEEKDAYS.map((w) => [w, { done: 0, days: 0 }])) as Record<Weekday, { done: number; days: number }>;
@@ -117,7 +127,8 @@ export function weekdayShares(data: DisciplineData, habit: Habit, from: CivilDat
 	for (let d = maxDate(from, startOf(habit)); d <= last; d = addDays(d, 1)) {
 		const cell = dayCell(data, habit, d, today);
 		if (cell.state === 'inactive' || cell.state === 'notDue') continue;
-		const done = cell.state === 'free' ? cell.value > 0 : cell.state === 'met';
+		const limit = goalOn(habit, d)?.aim === 'limit';
+		const done = cell.state === 'free' ? cell.value > 0 : limit ? cell.state === 'missed' : cell.state === 'met';
 		if (d === today && !done) continue;
 		const share = shares[weekday(d)];
 		share.days++;
@@ -132,6 +143,8 @@ export interface AmountBucket {
 	readonly total: number;
 	/** What the goals in effect ask for in the bucket (a weekly goal per week, daily ones summed, …) */
 	readonly target: number;
+	/** The aim of the goal in effect on the bucket's last active day */
+	readonly aim: Aim;
 }
 
 /**
@@ -148,7 +161,7 @@ export function amountBuckets(data: DisciplineData, habit: Habit, buckets: reado
 		const owner = lastActive >= maxDate(from, startOf(habit)) ? goalOn(habit, lastActive) : undefined;
 		if (owner && owner.period !== 'day') {
 			const period = periodOf(owner, lastActive, weekStart);
-			if (period.from === from && period.to === to) return { from, to, total, target: owner.target };
+			if (period.from === from && period.to === to) return { from, to, total, target: owner.target, aim: owner.aim };
 		}
 		let target = 0;
 		for (let d = maxDate(from, startOf(habit)); d <= to; d = addDays(d, 1)) {
@@ -162,6 +175,6 @@ export function amountBuckets(data: DisciplineData, habit: Habit, buckets: reado
 				target += goal.target / daysInMonth(year, month);
 			}
 		}
-		return { from, to, total, target: round(target) };
+		return { from, to, total, target: round(target), aim: owner?.aim ?? 'build' };
 	});
 }

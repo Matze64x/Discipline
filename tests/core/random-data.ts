@@ -85,11 +85,16 @@ export function generator(seed: number) {
 	const amount = (): number => pick([() => int(1, 120), () => int(1, 99_999) / 1000, () => MAX_VALUE, () => 0.001, () => int(1, 500) / 10])();
 	const goal = (kind: HabitKind): Goal => {
 		const period = pick(['day', 'day', 'week', 'month'] as const);
+		const aim = chance(0.3) ? 'limit' : 'build';
+		// a limit can be 0
+		const limitAmount = () => (chance(0.2) ? 0 : amount());
 		if (period === 'day') {
 			const days = chance(0.5) ? [...WEEKDAYS] : WEEKDAYS.filter(() => chance(0.5));
-			return { period, days: days.length > 0 ? days : [pick(WEEKDAYS) as Weekday], target: kind === 'check' ? 1 : amount() };
+			const target = kind === 'check' ? (aim === 'build' ? 1 : 0) : aim === 'build' ? amount() : limitAmount();
+			return { period, days: days.length > 0 ? days : [pick(WEEKDAYS) as Weekday], aim, target };
 		}
-		return { period, target: kind === 'check' ? int(1, PERIOD_DAYS[period]) : amount() };
+		const target = kind === 'check' ? int(aim === 'build' ? 1 : 0, PERIOD_DAYS[period]) : aim === 'build' ? amount() : limitAmount();
+		return { period, aim, target };
 	};
 	/** 1–3 goals over time, the first from `start` */
 	const goals = (kind: HabitKind, start: CivilDate): DatedGoal[] => {

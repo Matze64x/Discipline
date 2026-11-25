@@ -27,7 +27,7 @@ import { randomData, randomEdit } from './random-data';
 
 let clock = 1_000_000;
 const now = () => clock++ as UtcSeconds;
-const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', goal: { period: 'week', target: 3 }, color: '#3a86ff', start: '2026-01-01' as CivilDate });
+const draft = (name: string): HabitDraft => ({ name, kind: 'check', unit: '', goal: { period: 'week', aim: 'build', target: 3 }, color: '#3a86ff', start: '2026-01-01' as CivilDate });
 
 /** A device: its working copy and a base per peer, changed atomically like the app's storage */
 class Device implements SyncStore {

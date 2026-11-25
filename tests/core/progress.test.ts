@@ -25,8 +25,8 @@ import { randomData } from './random-data';
 const T = 1_800_000_000 as UtcSeconds;
 const day = (s: string) => s as CivilDate;
 
-const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5], target: 30 } };
-const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', color: '#ff006e', start: day('2026-11-02'), goal: { period: 'week', target: 3 } };
+const READ: HabitDraft = { name: 'Read', kind: 'amount', unit: 'min', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5], aim: 'build', target: 30 } };
+const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', color: '#ff006e', start: day('2026-11-02'), goal: { period: 'week', aim: 'build', target: 3 } };
 
 function make(draft: HabitDraft): { data: DisciplineData; id: Id } {
 	return addHabit(EMPTY_DATA, draft, T);
@@ -56,20 +56,20 @@ describe('progress', () => {
 	});
 
 	it('a monthly check target is capped at the days of the month', () => {
-		const { data } = make({ ...RUN, start: day('2026-01-01'), goal: { period: 'month', target: 31 } });
+		const { data } = make({ ...RUN, start: day('2026-01-01'), goal: { period: 'month', aim: 'build', target: 31 } });
 		expect(progressOn(data, data.habits[0]!, day('2026-02-10'), 1)).toMatchObject({ from: '2026-02-01', to: '2026-02-28', target: 28 });
 		expect(progressOn(data, data.habits[0]!, day('2026-03-10'), 1)).toMatchObject({ target: 31 });
 	});
 
 	it('sums amounts without float noise', () => {
-		let { data, id } = make({ ...READ, goal: { period: 'week', target: 1 } });
+		let { data, id } = make({ ...READ, goal: { period: 'week', aim: 'build', target: 1 } });
 		data = setEntry(setEntry(data, id, day('2026-11-23'), 0.1, T), id, day('2026-11-24'), 0.2, T);
 		expect(progressOn(data, data.habits[0]!, day('2026-11-24'), 1)!.done).toBe(0.3);
 	});
 
 	it('uses the goal in effect on the day', () => {
 		let { data, id } = make(READ);
-		data = updateHabit(data, id, { ...READ, goal: { period: 'day', days: [1, 2, 3, 4, 5], target: 45 } }, day('2026-11-24'), T);
+		data = updateHabit(data, id, { ...READ, goal: { period: 'day', days: [1, 2, 3, 4, 5], aim: 'build', target: 45 } }, day('2026-11-24'), T);
 		expect(progressOn(data, data.habits[0]!, day('2026-11-23'), 1)!.target).toBe(30);
 		expect(progressOn(data, data.habits[0]!, day('2026-11-24'), 1)!.target).toBe(45);
 	});
@@ -108,7 +108,7 @@ describe('the week at a glance', () => {
 	it('a day under a weekly goal (before a change to a daily one) is off, not missed', () => {
 		let { data, id } = make({ ...RUN, kind: 'check' });
 		// weekly until Wed, daily (every day) from Wed 2026-11-04 on
-		data = updateHabit(data, id, { ...RUN, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 1 } }, day('2026-11-04'), T);
+		data = updateHabit(data, id, { ...RUN, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 1 } }, day('2026-11-04'), T);
 		data = toggleCheck(data, id, day('2026-11-05'), T);
 		const week = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].map(day);
 		expect(dayMarks(data, data.habits[0]!, week, day('2026-11-07'))).toEqual(['off', 'off', 'missed', 'done', 'missed', 'open', 'open']);
@@ -128,9 +128,9 @@ describe('the week at a glance', () => {
 		data = setEntry(run.data, id, day('2026-11-02'), 30, T);
 		data = toggleCheck(data, run.id, day('2026-11-02'), T);
 		// (RUN's goal is weekly: not counted)
-		expect(dayShare(data, day('2026-11-02'))).toEqual({ met: 1, due: 1 });
-		expect(dayShare(data, day('2026-11-03'))).toEqual({ met: 0, due: 1 });
-		expect(dayShare(data, day('2026-11-07'))).toEqual({ met: 0, due: 0 });
+		expect(dayShare(data, day('2026-11-02'), day('2026-11-20'))).toEqual({ met: 1, due: 1 });
+		expect(dayShare(data, day('2026-11-03'), day('2026-11-20'))).toEqual({ met: 0, due: 1 });
+		expect(dayShare(data, day('2026-11-07'), day('2026-11-20'))).toEqual({ met: 0, due: 0 });
 	});
 });
 
@@ -147,5 +147,43 @@ describe('entries by habit', () => {
 				expect(entriesBetween(all, from, to)).toEqual(all.filter((e) => e.date >= from && e.date <= to));
 			}
 		}
+	});
+});
+
+describe('limits', () => {
+	const COFFEE: HabitDraft = { name: 'Coffee', kind: 'amount', unit: 'cups', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'limit', target: 2 } };
+	const SMOKE: HabitDraft = { name: 'Smoke', kind: 'check', unit: '', color: '#3a86ff', start: day('2026-11-02'), goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'limit', target: 0 } };
+
+	it('met while at most the target; nothing entered is a kept day', () => {
+		let { data, id } = make(COFFEE);
+		const h = () => data.habits[0]!;
+		expect(progressOn(data, h(), day('2026-11-03'), 1)).toMatchObject({ done: 0, target: 2, met: true });
+		data = setEntry(data, id, day('2026-11-03'), 2, T);
+		expect(progressOn(data, h(), day('2026-11-03'), 1)!.met).toBe(true);
+		data = setEntry(data, id, day('2026-11-03'), 3, T);
+		expect(progressOn(data, h(), day('2026-11-03'), 1)!.met).toBe(false);
+	});
+
+	it('days: kept once over, broken at once; today stays open while kept', () => {
+		let { data, id } = make(SMOKE);
+		data = toggleCheck(data, id, day('2026-11-03'), T);
+		data = toggleCheck(data, id, day('2026-11-05'), T);
+		const days = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'].map(day);
+		expect(dayMarks(data, data.habits[0]!, days, day('2026-11-05'))).toEqual(['done', 'missed', 'done', 'missed', 'open']);
+		expect(dayMarks(data, data.habits[0]!, days, day('2026-11-04'))).toEqual(['done', 'missed', 'open', 'missed', 'open']);
+	});
+
+	it('a monthly yes/no limit isn’t capped like a goal to build', () => {
+		const { data } = make({ ...SMOKE, goal: { period: 'month', aim: 'limit', target: 31 } });
+		expect(progressOn(data, data.habits[0]!, day('2026-11-10'), 1)).toMatchObject({ target: 31, met: true });
+	});
+
+	it('the day ring: a limit kept today doesn’t count yet, a broken one does', () => {
+		let { data, id } = make(SMOKE);
+		const today = day('2026-11-05');
+		expect(dayShare(data, today, today)).toEqual({ met: 0, due: 0 });
+		expect(dayShare(data, day('2026-11-04'), today)).toEqual({ met: 1, due: 1 });
+		data = toggleCheck(data, id, today, T);
+		expect(dayShare(data, today, today)).toEqual({ met: 0, due: 1 });
 	});
 });

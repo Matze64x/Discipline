@@ -36,8 +36,8 @@ const T2 = 1_800_000_100 as UtcSeconds;
 const day = (text: string) => text as CivilDate;
 const TODAY = day('2026-11-24');
 
-const READ: HabitDraft = { name: ' Read ', kind: 'amount', unit: 'min', goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 30 }, color: '#3A86FF', start: day('2026-11-01') };
-const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', goal: { period: 'week', target: 3 }, color: '#ff006e', start: day('2026-11-01') };
+const READ: HabitDraft = { name: ' Read ', kind: 'amount', unit: 'min', goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 30 }, color: '#3A86FF', start: day('2026-11-01') };
+const RUN: HabitDraft = { name: 'Run', kind: 'check', unit: '', goal: { period: 'week', aim: 'build', target: 3 }, color: '#ff006e', start: day('2026-11-01') };
 
 /** The data must stay valid: it survives a round trip through the file format unchanged */
 function expectValid(data: DisciplineData): void {
@@ -60,7 +60,7 @@ describe('habits', () => {
 	it('adds habits at the end, cleaned up', () => {
 		const { data, read, run } = withHabits();
 		expect(data.habits.map((h) => h.id)).toEqual([read, run]);
-		expect(data.habits[0]).toMatchObject({ name: 'Read', color: '#3a86ff', position: 1, archived: null, edited: T1, goals: [{ from: '2026-11-01', period: 'day', target: 30 }] });
+		expect(data.habits[0]).toMatchObject({ name: 'Read', color: '#3a86ff', position: 1, archived: null, edited: T1, goals: [{ from: '2026-11-01', period: 'day', aim: 'build', target: 30 }] });
 		expect(data.habits[1]).toMatchObject({ position: 2 });
 		expect(toDraft(data.habits[0]!)).toEqual({ ...READ, name: 'Read', color: '#3a86ff' });
 		expectValid(data);
@@ -72,8 +72,8 @@ describe('habits', () => {
 
 	it.each([
 		['an empty name', { ...READ, name: ' \n\u0000' }],
-		['a bad goal', { ...RUN, goal: { period: 'week', target: 8 } }],
-		['a bad target', { ...READ, goal: { period: 'day', days: [1], target: 0 } }],
+		['a bad goal', { ...RUN, goal: { period: 'week', aim: 'build', target: 8 } }],
+		['a bad target', { ...READ, goal: { period: 'day', days: [1], aim: 'build', target: 0 } }],
 		['a bad color', { ...READ, color: 'red' }],
 		['a bad start', { ...READ, start: day('2026-02-30') }],
 		['a start outside the years', { ...READ, start: day('1899-12-31') }],
@@ -112,7 +112,7 @@ describe('habits', () => {
 
 	it('keeps earlier goals when the goal changes', () => {
 		const { data, read } = withHabits();
-		const more = updateHabit(data, read, { ...READ, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], target: 45 } }, TODAY, T2);
+		const more = updateHabit(data, read, { ...READ, goal: { period: 'day', days: [1, 2, 3, 4, 5, 6, 7], aim: 'build', target: 45 } }, TODAY, T2);
 		expect(habit(more, read).goals.map((g) => [g.from, g.target])).toEqual([
 			['2026-11-01', 30],
 			['2026-11-24', 45],
@@ -121,7 +121,7 @@ describe('habits', () => {
 		expect(goalOn(habit(more, read), TODAY)!.target).toBe(45);
 		expect(goalOn(habit(more, read), day('2026-10-31'))).toBeUndefined();
 		// changed again the same day: replaces today's goal
-		const again = updateHabit(more, read, { ...READ, goal: { period: 'week', target: 200 } }, TODAY, T2);
+		const again = updateHabit(more, read, { ...READ, goal: { period: 'week', aim: 'build', target: 200 } }, TODAY, T2);
 		expect(habit(again, read).goals.map((g) => [g.from, g.period])).toEqual([
 			['2026-11-01', 'day'],
 			['2026-11-24', 'week'],
@@ -129,29 +129,29 @@ describe('habits', () => {
 		// and back: today's change disappears
 		expect(habit(updateHabit(again, read, READ, TODAY, T2), read).goals).toEqual(habit(data, read).goals);
 		// from the start: replaces all
-		expect(habit(updateHabit(more, read, { ...READ, goal: { period: 'month', target: 900 } }, day('2026-10-01'), T2), read).goals).toEqual([{ from: '2026-11-01', period: 'month', target: 900 }]);
+		expect(habit(updateHabit(more, read, { ...READ, goal: { period: 'month', aim: 'build', target: 900 } }, day('2026-10-01'), T2), read).goals).toEqual([{ from: '2026-11-01', period: 'month', aim: 'build', target: 900 }]);
 		expectValid(again);
 	});
 
 	it('moves the start, keeping the goal in effect then', () => {
 		const { data, read } = withHabits();
-		const more = updateHabit(data, read, { ...READ, goal: { period: 'day', days: [1], target: 45 } }, TODAY, T2);
-		const later = updateHabit(more, read, { ...READ, start: day('2026-11-28'), goal: { period: 'day', days: [1], target: 45 } }, TODAY, T2);
-		expect(habit(later, read).goals).toEqual([{ from: '2026-11-28', period: 'day', days: [1], target: 45 }]);
-		const middle = updateHabit(more, read, { ...READ, start: day('2026-11-10'), goal: { period: 'day', days: [1], target: 45 } }, TODAY, T2);
+		const more = updateHabit(data, read, { ...READ, goal: { period: 'day', days: [1], aim: 'build', target: 45 } }, TODAY, T2);
+		const later = updateHabit(more, read, { ...READ, start: day('2026-11-28'), goal: { period: 'day', days: [1], aim: 'build', target: 45 } }, TODAY, T2);
+		expect(habit(later, read).goals).toEqual([{ from: '2026-11-28', period: 'day', days: [1], aim: 'build', target: 45 }]);
+		const middle = updateHabit(more, read, { ...READ, start: day('2026-11-10'), goal: { period: 'day', days: [1], aim: 'build', target: 45 } }, TODAY, T2);
 		expect(habit(middle, read).goals.map((g) => [g.from, g.target])).toEqual([
 			['2026-11-10', 30],
 			['2026-11-24', 45],
 		]);
-		const earlier = updateHabit(more, read, { ...READ, start: day('2026-10-01'), goal: { period: 'day', days: [1], target: 45 } }, TODAY, T2);
+		const earlier = updateHabit(more, read, { ...READ, start: day('2026-10-01'), goal: { period: 'day', days: [1], aim: 'build', target: 45 } }, TODAY, T2);
 		expect(habit(earlier, read).goals.map((g) => g.from)).toEqual(['2026-10-01', '2026-11-24']);
 	});
 
 	it('turns a check habit into an amount habit, but not back once amounts are entered', () => {
 		const { data, run, read } = withHabits();
 		const done = toggleCheck(data, run, day('2026-11-02'), T1);
-		const amount = updateHabit(done, run, { ...RUN, kind: 'amount', unit: 'km', goal: { period: 'week', target: 20 } }, TODAY, T2);
-		expect(habit(amount, run).goals).toEqual([{ from: '2026-11-01', period: 'week', target: 20 }]);
+		const amount = updateHabit(done, run, { ...RUN, kind: 'amount', unit: 'km', goal: { period: 'week', aim: 'build', target: 20 } }, TODAY, T2);
+		expect(habit(amount, run).goals).toEqual([{ from: '2026-11-01', period: 'week', aim: 'build', target: 20 }]);
 		expect(amount.entries).toEqual(done.entries);
 		expectValid(amount);
 		// all values are 1: fine to go back

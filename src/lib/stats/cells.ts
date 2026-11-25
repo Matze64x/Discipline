@@ -1,5 +1,5 @@
 /** How a habit's day looks in the stats (calendar, week dots) and reads when tapped. */
-import { weekday, type CivilDate, type DayCell, type Habit } from '../../core';
+import { goalOn, weekday, type CivilDate, type DayCell, type Habit } from '../../core';
 import { formatShortDate, weekdayName, withUnit } from '../display';
 
 /** The CSS class of a day cell (`.cell` in app.css) and its `--fill` */
@@ -20,14 +20,29 @@ export function cellLook(cell: DayCell): { kind: string; fill: number } {
 	}
 }
 
-/** "Wed 12.11.: 5 / 30 min", "Mon 3.11.: done" */
-export function describeCell(cell: DayCell, date: CivilDate, habit: Pick<Habit, 'kind' | 'unit'>): string {
+/** "Wed 12.11.: 5 min", "Mon 3.11.: done"; limits: "Tue 4.11.: slipped", "Thu 6.11.: 3 cups (over)" */
+export function describeCell(cell: DayCell, date: CivilDate, habit: Habit): string {
 	const day = `${weekdayName(weekday(date))} ${formatShortDate(date)}`;
 	if (cell.state === 'inactive') return `${day}: –`;
+	const limit = goalOn(habit, date)?.aim === 'limit';
 	if (habit.kind === 'check') {
-		const state = cell.value > 0 ? 'done' : cell.state === 'missed' ? 'missed' : cell.state === 'notDue' ? 'not due' : 'not done';
+		const state = limit
+			? cell.value > 0
+				? 'slipped'
+				: cell.state === 'notDue'
+					? 'not due'
+					: cell.state === 'open' || cell.state === 'free' && cell.fill === 0
+						? 'kept so far'
+						: 'kept'
+			: cell.value > 0
+				? 'done'
+				: cell.state === 'missed'
+					? 'missed'
+					: cell.state === 'notDue'
+						? 'not due'
+						: 'not done';
 		return `${day}: ${state}`;
 	}
-	const amount = withUnit(cell.value, habit.unit);
-	return `${day}: ${cell.state === 'notDue' && cell.value === 0 ? 'not due' : amount}`;
+	if (cell.state === 'notDue' && cell.value === 0) return `${day}: not due`;
+	return `${day}: ${withUnit(cell.value, habit.unit)}${limit && cell.state === 'missed' ? ' (over)' : ''}`;
 }

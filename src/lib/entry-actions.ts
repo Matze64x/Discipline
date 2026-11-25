@@ -27,10 +27,10 @@ export function addToDay(workspace: Workspace, habit: Habit, day: CivilDate, amo
 
 /**
  * Whether "complete" can do something on a day: a yes/no habit not checked off yet; an amount
- * habit whose goal isn't met yet. Both only when due.
+ * habit whose goal isn't met yet. Both only when due, and never for a limit (kept by doing nothing).
  */
 export function canComplete(habit: Habit, progress: Progress, value: number | null): boolean {
-	if (!progress.due) return false;
+	if (!progress.due || progress.goal.aim === 'limit') return false;
 	return habit.kind === 'check' ? value === null : remainingOf(progress) > 0;
 }
 

@@ -211,7 +211,7 @@
 		<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
 	</button>
 </div>
-<DayStrip days={shownDays} {weekdays} selected={date} today={clock.today} share={(d) => dayShare(workspace.data, d)} onselect={show} />
+<DayStrip days={shownDays} {weekdays} selected={date} today={clock.today} share={(d) => dayShare(workspace.data, d, clock.today)} onselect={show} />
 </div>
 
 <SelectableList
@@ -229,8 +229,11 @@
 	{#snippet row(r)}
 		{@const { habit, progress, value } = r}
 		{@const daily = progress.goal.period === 'day'}
+		{@const limit = progress.goal.aim === 'limit'}
 		{@const completable = canComplete(habit, progress, value)}
-		{@const filled = habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met}
+		<!-- a limit's mark never fills (an entry is a slip, ✗); it turns red once the limit is broken -->
+		{@const filled = !limit && (habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met)}
+		{@const over = limit && progress.due && !progress.met}
 		<div class="row" class:off={!progress.due && value === null}>
 			<!--
 				The mark: a click target for the mouse (a tap on the row does the same). Hidden from
@@ -241,38 +244,42 @@
 				type="button"
 				class="mark"
 				class:filled
+				class:over
 				style:--color={habit.color}
 				tabindex="-1"
 				aria-hidden="true"
 				onmousedown={(e) => e.preventDefault()}
 				onclick={(e) => onButton(e, r, activate)}
 			>
-				{#if habit.kind === 'check'}{value === null ? '' : '✓'}{:else}{formatValue(value ?? 0)}{/if}
+				{#if habit.kind === 'check'}{value === null ? '' : limit ? '✗' : '✓'}{:else}{formatValue(value ?? 0)}{/if}
 			</button>
 			<div class="text">
-				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
+				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{limit ? (value === null ? ' (kept)' : ' (slipped)') : value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
 				{#if daily}
 					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
 					<span class="dots">
-						<span class="visually-hidden">{`Week: ${marks.filter((m) => m === 'done').length} done, ${marks.filter((m) => m === 'missed').length} missed.`}</span>
+						<span class="visually-hidden">{`Week: ${marks.filter((m) => m === 'done').length} ${limit ? 'kept' : 'done'}, ${marks.filter((m) => m === 'missed').length} ${limit ? 'slipped' : 'missed'}.`}</span>
 						{#each marks as mark, i (i)}
 							<span class={`dot ${mark}`} class:current={week[i] === date} class:today={week[i] === clock.today} style:--color={habit.color} aria-hidden="true"></span>
 						{/each}
-						{#if habit.kind === 'amount'}<span class="progress" class:met={progress.met}>{describeDayAmount(progress, habit)}</span>{/if}
+						{#if habit.kind === 'amount'}<span class="progress" class:met={progress.met && !limit} class:over={limit && !progress.met}>{describeDayAmount(progress, habit)}</span>{/if}
 					</span>
 				{:else}
 					{@const time = timeShare(progress, clock.today)}
+					<!-- (a limit of 0: anything is all of it) -->
+					{@const used = progress.target > 0 ? Math.min(1, progress.done / progress.target) : progress.done > 0 ? 1 : 0}
 					<span class="period">
 						<span class="label">{progress.goal.period === 'week' ? 'Week' : 'Month'}</span>
 						<span
 							class="bar"
 							role="img"
-							aria-label={`${Math.round(Math.min(1, progress.done / progress.target) * 100)}% done, ${Math.round(time * 100)}% of the ${progress.goal.period} gone`}
+							class:over={limit && !progress.met}
+							aria-label={`${Math.round(used * 100)}% ${limit ? 'of the limit used' : 'done'}, ${Math.round(time * 100)}% of the ${progress.goal.period} gone`}
 							style:--color={habit.color}
 							style:--time={`${time * 100}%`}
-							style:--done={Math.min(1, progress.done / progress.target)}
+							style:--done={used}
 						><span class="fill"></span></span>
-						<span class="progress" class:met={progress.met}>{habit.kind === 'check' ? `${progress.done} / ${progress.target}` : `${formatValue(progress.done)} / ${withUnit(progress.target, habit.unit)}`}</span>
+						<span class="progress" class:met={progress.met && !limit} class:over={limit && !progress.met}>{habit.kind === 'check' ? `${progress.done} / ${limit ? 'max ' : ''}${progress.target}` : `${formatValue(progress.done)} / ${limit ? 'max ' : ''}${withUnit(progress.target, habit.unit)}`}</span>
 					</span>
 				{/if}
 			</div>
@@ -282,6 +289,8 @@
 					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
 					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>
 				{/if}
+				<!-- (a limit is kept by doing nothing: no complete) -->
+				{#if !limit}
 					<button
 						type="button"
 						tabindex="-1"
@@ -291,6 +300,7 @@
 						onmousedown={(e) => e.preventDefault()}
 						onclick={(e) => onButton(e, r, complete)}>✓</button
 					>
+				{/if}
 				</span>
 		</div>
 	{/snippet}
@@ -482,6 +492,10 @@
 		background: var(--color);
 		color: #fff;
 	}
+	.mark.over {
+		border-color: var(--negative);
+		color: var(--negative);
+	}
 	/* the name, with the progress below it */
 	.text {
 		flex: 1 1 auto;
@@ -518,6 +532,12 @@
 	}
 	.progress.met {
 		color: var(--positive);
+	}
+	.progress.over {
+		color: var(--negative);
+	}
+	.bar.over .fill {
+		background: var(--negative);
 	}
 	.empty {
 		color: var(--muted);
