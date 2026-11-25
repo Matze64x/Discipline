@@ -29,7 +29,7 @@ const dayList = (page: Page) => page.getByRole('listbox', { name: 'Habits of the
 const habitList = (page: Page) => page.getByRole('listbox', { name: 'Habits' });
 /** The day the habits are shown for (picked above them) */
 const shownDay = (page: Page) => page.getByRole('group', { name: 'Days' }).getByRole('button', { pressed: true });
-const dayRow = (page: Page, name: string) => dayList(page).getByRole('option').filter({ has: page.locator('.name').getByText(name, { exact: false }).filter({ hasText: new RegExp(`^${name}( \\((not )?done\\))?$`) }) });
+const dayRow = (page: Page, name: string) => dayList(page).getByRole('option').filter({ has: page.locator('.name').getByText(name, { exact: false }).filter({ hasText: new RegExp(`^${name}( \\((not )?done\\))?( \\(its days shown above\\))?$`) }) });
 
 test('add habits, check off and enter amounts by keyboard', async ({ page }) => {
 	await open(page);
@@ -361,4 +361,26 @@ test('a week’s dots stay together, evenly spaced (today’s once jumped to the
 	const lefts = await dayRow(page, 'Meditate').locator('.dot').evaluateAll((dots) => dots.map((d) => d.getBoundingClientRect().left));
 	expect(lefts).toHaveLength(7);
 	expect(new Set(lefts.slice(1).map((x, i) => Math.round(x - lefts[i]!))).size).toBe(1);
+
+	// f focuses the selected habit (its days above, also on another week and after Today), Escape: all again
+	await keys(page, 'f');
+	await expect(dayRow(page, 'Meditate')).toContainText('(its days shown above)');
+	// the week before it started: no row to tap, so the strip names it, with a way back to all
+	await keys(page, 'Shift+ArrowLeft');
+	const chip = page.getByRole('button', { name: 'Show all habits’ days, not only “Meditate”’s' });
+	await expect(chip).toHaveText('Meditate ×');
+	await keys(page, 't');
+	await expect(chip).toBeHidden();
+	await expect(dayRow(page, 'Meditate')).toContainText('(its days shown above)');
+	await keys(page, 'Shift+ArrowLeft');
+	await chip.click();
+	await expect(chip).toBeHidden();
+	await keys(page, 't', 'f');
+	await expect(dayRow(page, 'Meditate')).toContainText('(its days shown above)');
+	// a click on the row: the same
+	await dayRow(page, 'Meditate').locator('.name').click();
+	await expect(dayRow(page, 'Meditate')).not.toContainText('(its days shown above)');
+	await expect(page.getByRole('dialog')).toBeHidden();
+	await keys(page, 'f', 'Escape');
+	await expect(dayRow(page, 'Meditate')).not.toContainText('(its days shown above)');
 });

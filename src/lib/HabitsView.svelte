@@ -1,5 +1,6 @@
 <!--
-	All habits: add (n), edit (Enter), reorder (Alt+↑/↓), archive (a) and delete (Delete, with undo).
+	All habits: add (n), edit (Enter, a tap), reorder (Alt+↑/↓, or Reorder: ↑ ↓ on every row, a tap
+	then opens nothing, so the new order shows in place), archive (a) and delete (Delete, with undo).
 	Active habits first, in their order; archived ones after them.
 -->
 <script lang="ts">
@@ -62,6 +63,21 @@
 		}
 	}
 
+	/** Reorder mode: ↑ ↓ on every row */
+	let reordering = $state(false);
+	// nothing left to reorder (also after a sync or an undone import): the mode ends, else New and
+	// the taps that open a habit would stay hidden
+	$effect(() => {
+		if (habits.length < 2) reordering = false;
+	});
+
+	/** Whether a habit can move up or down among the active habits (or the archived ones) */
+	function canMove(h: Habit, by: -1 | 1): boolean {
+		const group = h.archived === null ? activeHabits : archivedHabits;
+		const i = group.findIndex((x) => x.id === h.id);
+		return i >= 0 && group[i + by] !== undefined;
+	}
+
 	/** Moves the selected habit up or down among the active habits (or the archived ones) */
 	async function move(h: Habit | undefined, by: -1 | 1) {
 		if (!h) return;
@@ -93,7 +109,10 @@
 
 <div class="toolbar">
 	<h2>Habits</h2>
-	<button class="primary" onclick={openNew}>New</button>
+	<div class="tools">
+		{#if habits.length > 1}<button onclick={() => ((reordering = !reordering), list.focus())}>{reordering ? 'Done' : 'Reorder'}</button>{/if}
+		{#if !reordering}<button class="primary" onclick={openNew}>New</button>{/if}
+	</div>
 </div>
 
 <SelectableList
@@ -106,13 +125,33 @@
 	{active}
 	group="Habits"
 	itemName="habit"
-	onopen={(h) => (editing = h)}
+	onopen={(h) => !reordering && (editing = h)}
 >
 	{#snippet row(h)}
 		<div class="row" class:archived={h.archived !== null}>
 			<span class="dot" style:background={h.color}></span>
 			<span class="name">{h.name}</span>
 			<span class="goal">{h.archived !== null ? 'Archived' : describeGoal(latestGoal(h), h)}</span>
+			{#if reordering}
+				<!-- (never focused, like Today's row buttons: the keys act on the list's selection) -->
+				<span class="move">
+					{#each [-1, 1] as const as by (by)}
+						<button
+							type="button"
+							tabindex="-1"
+							aria-label={by < 0 ? `Move “${h.name}” up` : `Move “${h.name}” down`}
+							disabled={!canMove(h, by)}
+							onmousedown={(e) => e.preventDefault()}
+							onclick={(e) => {
+								e.stopPropagation();
+								selectedId = h.id;
+								void move(h, by);
+								list.focus();
+							}}>{by < 0 ? '↑' : '↓'}</button
+						>
+					{/each}
+				</span>
+			{/if}
 		</div>
 	{/snippet}
 	{#snippet empty()}
@@ -131,12 +170,6 @@
 		onarchive={(h) => {
 			close();
 			void toggleArchived(h);
-		}}
-		onmove={(h, by) => void move(h, by)}
-		canmove={(h, by) => {
-			const group = h.archived === null ? activeHabits : archivedHabits;
-			const i = group.findIndex((x) => x.id === h.id);
-			return i >= 0 && group[i + by] !== undefined;
 		}}
 		ondelete={(h) => {
 			close();
@@ -157,6 +190,20 @@
 	h2 {
 		margin: 0;
 		font-size: 1.3rem;
+	}
+	.tools {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.move {
+		flex: none;
+		display: flex;
+		gap: 0.25rem;
+	}
+	.move button {
+		min-width: max(2.4rem, var(--tap));
+		height: max(2.4rem, var(--tap));
+		padding: 0;
 	}
 	.row {
 		display: flex;

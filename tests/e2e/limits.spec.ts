@@ -49,7 +49,7 @@ test('limits: made in the editor, slips on Today, judged in Stats', async ({ pag
 	await page.getByRole('button', { name: 'Today', exact: true }).click();
 	await expect(row(page, 'Smoke')).toContainText('(kept)');
 	await expect(row(page, 'Smoke').getByRole('button', { name: 'Complete' })).toHaveCount(0);
-	await row(page, 'Smoke').locator('.name').click();
+	await row(page, 'Smoke').locator('.mark').click();
 	await expect(row(page, 'Smoke')).toContainText('(slipped)');
 
 	await expect(row(page, 'Run').locator('.progress')).toHaveText('0 / 3');

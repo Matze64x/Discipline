@@ -7,14 +7,17 @@
 	whose fill how far the habit is. In the focused list, Space or Enter checks the
 	selected habit off (or opens its amount), a digit starts entering an amount, Delete clears it,
 	e edits the habit. An amount habit's buttons (and keys): +1 (+), add an amount (a), complete:
-	add what's missing to meet the goal (c). A tap on a row (or a click on its mark) does the same
-	as Space.
+	add what's missing to meet the goal (c). A click on a row's mark does the same as Space.
+	A tap on a row (or f) focuses its habit: the days above show only how it did, in its color, while
+	paging and across tabs; a tap again (or Escape) shows all habits again (user design 2026-11-25:
+	a tap on a row must not open the amount dialog).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
 		addDays,
 		addMonths,
+		dayCell,
 		dayMarks,
 		dayShare,
 		entryOn,
@@ -37,6 +40,8 @@
 	import { settings } from './settings.svelte';
 	import { addToDay, canComplete, completeDay, setDay, toggleDay } from './entry-actions';
 	import { swipe } from './ui/swipe';
+	import { touchFirst } from './pointer';
+	import { describeCell } from './stats/cells';
 	import { shortcuts } from './shortcuts.svelte';
 	import SelectableList from './ui/SelectableList.svelte';
 	import type { Workspace } from './workspace.svelte';
@@ -87,6 +92,31 @@
 			return progress ? [{ habit, progress, value: entryOn(workspace.data, habit.id, date)?.value ?? null }] : [];
 		}),
 	);
+
+	/** The habit whose days the strip shows (null: all habits') */
+	let focusedId = $state<Id | null>(null);
+	const focused = $derived(workspace.data.habits.find((h) => h.id === focusedId) ?? null);
+	// deleted (also by a sync): all habits again, for good
+	$effect(() => {
+		if (focusedId !== null && !focused) focusedId = null;
+	});
+	function toggleFocus(habit: Habit) {
+		selectedId = habit.id;
+		focusedId = focusedId === habit.id ? null : habit.id;
+	}
+	/**
+	 * A day's ring above: all habits' daily goals met, or how the focused habit did (its goal's share
+	 * done; a limit: full when kept; none on days it doesn't count or isn't due)
+	 */
+	function ring(day: CivilDate): { fill: number; text: string } | null {
+		if (!focused) {
+			const { met, due } = dayShare(workspace.data, day, clock.today);
+			return due > 0 ? { fill: met / due, text: `${met} of ${due} done` } : null;
+		}
+		const cell = dayCell(workspace.data, focused, day, clock.today);
+		if (cell.state === 'inactive' || cell.state === 'notDue') return null;
+		return { fill: cell.fill, text: describeCell(cell, day, focused).replace(/^[^:]*: /, '') };
+	}
 
 	let selectedId = $state<Id | null>(null);
 	const selected = $derived(rows.find((r) => r.habit.id === selectedId));
@@ -182,6 +212,7 @@
 			{ keys: ['m'], description: 'Show the month (or the week)', group: 'Day', when: () => active, run: toggleMonth },
 			{ keys: ['t'], description: 'Today', group: 'Day', when: () => active && !isToday, visible: () => active, run: goToday },
 			{ keys: ['n'], description: 'New habit', group: 'Day', when: () => active, run: onnewhabit },
+			{ keys: ['Escape'], description: 'Show all habits’ days again', group: 'Day', when: () => active && focusedId !== null, visible: () => active, run: () => (focusedId = null) },
 			// these act on the selection, so only while the list (not a button elsewhere) has the focus
 			...[
 				{ keys: [' ', 'Enter'], description: 'Check off (again: uncheck), or enter the amount', run: () => activate(selected) },
@@ -196,6 +227,7 @@
 				{ keys: ['c'], description: 'Complete (add what’s missing)', run: () => selected && complete(selected) },
 				{ keys: ['Delete', 'Backspace'], description: 'Clear the day', run: () => selected && void setValue(selected.habit, date, null) },
 				{ keys: ['e'], description: 'Edit the habit', run: () => selected && onedithabit(selected.habit) },
+				{ keys: ['f'], description: 'Show only its days above (again: all habits’)', run: () => selected && toggleFocus(selected.habit) },
 			].map((s) => ({ ...s, group: 'Day', focusIn: () => listElement, visible: () => active, when: () => active && !!selected })),
 		]),
 	);
@@ -212,7 +244,13 @@
 		<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
 	</button>
 </div>
-<DayStrip days={shownDays} {weekdays} selected={date} today={clock.today} share={(d) => dayShare(workspace.data, d, clock.today)} onselect={show} />
+<DayStrip days={shownDays} {weekdays} selected={date} today={clock.today} {ring} color={focused?.color ?? null} onselect={show} />
+<!-- the focused habit has no row to tap on this day (not started, archived): it's named here instead -->
+{#if focused && !rows.some((r) => r.habit.id === focused.id)}
+	<button class="focus-chip" style:--color={focused.color} aria-label={`Show all habits’ days, not only “${focused.name}”’s`} onclick={() => ((focusedId = null), list.focus())}
+		>{focused.name} ×</button
+	>
+{/if}
 </div>
 
 <SelectableList
@@ -225,7 +263,8 @@
 	{active}
 	group="Day"
 	itemName="habit"
-	onopen={(r) => activate(r)}
+	onopen={(r) => toggleFocus(r.habit)}
+	showSelection={!touchFirst}
 >
 	{#snippet row(r)}
 		{@const { habit, progress, value } = r}
@@ -235,9 +274,9 @@
 		<!-- a limit's mark never fills (an entry is a slip, ✗); it turns red once the limit is broken -->
 		{@const filled = !limit && (habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met)}
 		{@const over = limit && progress.due && !progress.met}
-		<div class="row" class:off={!progress.due && value === null}>
+		<div class="row" class:off={!progress.due && value === null} class:focused={focusedId === habit.id} style:--color={habit.color}>
 			<!--
-				The mark: a click target for the mouse (a tap on the row does the same). Hidden from
+				The mark: checks off or opens the amount (Space does the same; a tap on the row focuses). Hidden from
 				screen readers, which get the state as text; never focused (then Space would act on it,
 				not on the list's selection).
 			-->
@@ -255,7 +294,7 @@
 				{#if habit.kind === 'check'}{value === null ? '' : limit ? '✗' : '✓'}{:else}{formatValue(value ?? 0)}{/if}
 			</button>
 			<div class="text">
-				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{limit ? (value === null ? ' (kept)' : ' (slipped)') : value === null ? ' (not done)' : ' (done)'}</span>{/if}</span>
+				<span class="name">{habit.name}{#if habit.kind === 'check'}<span class="visually-hidden">{limit ? (value === null ? ' (kept)' : ' (slipped)') : value === null ? ' (not done)' : ' (done)'}</span>{/if}{#if focusedId === habit.id}<span class="visually-hidden">{' (its days shown above)'}</span>{/if}</span>
 				{#if daily}
 					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
 					<span class="dots">
@@ -471,6 +510,21 @@
 		width: calc((100% - 4px) * var(--done));
 		border-radius: 0.25rem;
 		background: var(--color);
+	}
+	.focus-chip {
+		display: block;
+		margin: 0.25rem auto 0;
+		min-height: var(--tap);
+		padding: 0.2rem 0.8rem;
+		border: 2px solid var(--color);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--color) 12%, transparent);
+		font-size: 0.9rem;
+	}
+	/* the habit whose days the strip shows: its color, as the rings */
+	.row.focused {
+		background: color-mix(in srgb, var(--color) 12%, transparent);
+		box-shadow: inset 4px 0 0 var(--color);
 	}
 	.row {
 		display: flex;

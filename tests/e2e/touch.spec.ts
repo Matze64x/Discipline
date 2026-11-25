@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 test.skip(({ hasTouch }) => !hasTouch, 'touch only');
 
 const dayList = (page: Page) => page.getByRole('listbox', { name: 'Habits of the day' });
-const dayRow = (page: Page, name: string) => dayList(page).getByRole('option').filter({ has: page.locator('.name').getByText(name, { exact: false }).filter({ hasText: new RegExp(`^${name}( \\((not )?done\\))?$`) }) });
+const dayRow = (page: Page, name: string) => dayList(page).getByRole('option').filter({ has: page.locator('.name').getByText(name, { exact: false }).filter({ hasText: new RegExp(`^${name}( \\((not )?done\\))?( \\(its days shown above\\))?$`) }) });
 const habitList = (page: Page) => page.getByRole('listbox', { name: 'Habits' });
 
 async function addHabit(page: Page, name: string, amount = false) {
@@ -29,15 +29,26 @@ test('add habits, check off and enter amounts by taps', async ({ page }) => {
 	await addHabit(page, 'Read', true);
 
 	await page.getByRole('button', { name: 'Today' }).tap();
-	// a tap on the row checks it off; again: unchecks; a tap on the mark does the same
-	await dayRow(page, 'Meditate').getByText('Meditate').tap();
+	// a tap on the mark checks it off; again: unchecks
+	await dayRow(page, 'Meditate').locator('.mark').tap();
 	await expect(dayRow(page, 'Meditate')).toContainText('(done)');
-	await dayRow(page, 'Meditate').getByText('Meditate').tap();
+	await dayRow(page, 'Meditate').locator('.mark').tap();
 	await expect(dayRow(page, 'Meditate')).toContainText('(not done)');
 	await dayRow(page, 'Meditate').locator('.mark').tap();
 	await expect(dayRow(page, 'Meditate')).toContainText('(done)');
 
+	// a tap on the row only focuses the habit: the days above show it alone; again: all habits
+	const monday = page.getByRole('group', { name: 'Days' }).getByRole('button', { name: /^Mon 23\.11\./ });
+	await expect(monday).toHaveAccessibleName('Mon 23.11., 1 of 2 done');
 	await dayRow(page, 'Read').getByText('Read').tap();
+	await expect(page.getByRole('dialog')).toBeHidden();
+	await expect(dayRow(page, 'Read')).toContainText('(its days shown above)');
+	await expect(monday).toHaveAccessibleName('Mon 23.11., 0');
+	await dayRow(page, 'Read').getByText('Read').tap();
+	await expect(dayRow(page, 'Read')).not.toContainText('(its days shown above)');
+	await expect(monday).toHaveAccessibleName('Mon 23.11., 1 of 2 done');
+
+	await dayRow(page, 'Read').locator('.mark').tap();
 	let amount = page.getByRole('dialog', { name: /Read/ });
 	await amount.getByLabel('Amount').fill('12,5');
 	await amount.getByRole('button', { name: 'Save' }).tap();
@@ -74,12 +85,23 @@ test('edit, reorder, archive and delete (with undo) by taps', async ({ page }) =
 	for (const name of ['A', 'B', 'C']) await addHabit(page, name);
 	const names = () => habitList(page).locator('.name').allTextContents();
 
-	// a tap opens the editor; its arrows move the habit
+	// Reorder: arrows on every row, the order changes in place; a tap opens nothing meanwhile
+	await page.getByRole('button', { name: 'Reorder' }).tap();
+	await expect(page.getByRole('button', { name: 'Move “A” up' })).toBeDisabled();
+	await page.getByRole('button', { name: 'Move “A” down' }).tap();
+	await expect.poll(names).toEqual(['B', 'A', 'C']);
+	await page.getByRole('button', { name: 'Move “C” up' }).tap();
+	await expect.poll(names).toEqual(['B', 'C', 'A']);
+	await habitList(page).getByText('A', { exact: true }).tap();
+	await expect(page.getByRole('dialog')).toBeHidden();
+	await page.getByRole('button', { name: 'Move “C” down' }).tap();
+	await page.getByRole('button', { name: 'Done' }).tap();
+	await expect(page.getByRole('button', { name: 'Move “A” up' })).toBeHidden();
+	await expect.poll(names).toEqual(['B', 'A', 'C']);
+
+	// a tap opens the editor
 	await habitList(page).getByText('A', { exact: true }).tap();
 	const dialog = page.getByRole('dialog', { name: 'Edit habit' });
-	await expect(dialog.getByRole('button', { name: 'Move up' })).toBeDisabled();
-	await dialog.getByRole('button', { name: 'Move down' }).tap();
-	await expect.poll(names).toEqual(['B', 'A', 'C']);
 	await dialog.getByLabel('Name').fill('Alpha');
 	await dialog.getByRole('button', { name: 'Save' }).tap();
 	await expect.poll(names).toEqual(['B', 'Alpha', 'C']);

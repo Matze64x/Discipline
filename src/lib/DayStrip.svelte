@@ -1,6 +1,7 @@
 <!--
-	The days above Today's habits: a week, or a whole month (a calendar). Each day shows how many of
-	its daily goals were met as a ring; a tap picks the day. Days after today can't be picked.
+	The days above Today's habits: a week, or a whole month (a calendar). Each day can show a ring
+	(how many daily goals were met, or how a focused habit did); a tap picks the day. Days after
+	today can't be picked.
 -->
 <script lang="ts">
 	import { dateParts, weekday, type CivilDate, type Weekday } from '../core';
@@ -11,7 +12,8 @@
 		weekdays,
 		selected,
 		today,
-		share,
+		ring,
+		color = null,
 		onselect,
 	}: {
 		/** The days in calendar order, a full number of weeks; null: a blank (another month) */
@@ -20,8 +22,10 @@
 		weekdays: readonly Weekday[];
 		selected: CivilDate;
 		today: CivilDate;
-		/** How many of a day's daily goals were met */
-		share: (day: CivilDate) => { met: number; due: number };
+		/** A day's ring: how full (0…1) and what it says, e.g. "2 of 3 done" (null: none) */
+		ring: (day: CivilDate) => { fill: number; text: string } | null;
+		/** The rings' color (null: the accent color) */
+		color?: string | null;
 		onselect: (day: CivilDate) => void;
 	} = $props();
 
@@ -29,31 +33,31 @@
 	const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 </script>
 
-<div class="strip" role="group" aria-label="Days">
+<div class="strip" role="group" aria-label="Days" style:--ring={color ?? 'var(--accent)'}>
 	{#each weekdays as w (w)}<span class="weekday" aria-hidden="true">{weekdayName(w)}</span>{/each}
 	{#each days as day, i (day ?? `blank-${i}`)}
 		{#if day === null}
 			<span></span>
 		{:else}
-			{@const { met, due } = share(day)}
 			{@const future = day > today}
+			{@const r = future ? null : ring(day)}
 			<button
 				type="button"
 				class="day"
 				class:today={day === today}
-				class:all={due > 0 && met === due}
+				class:all={r !== null && r.fill >= 1}
 				aria-pressed={day === selected}
 				aria-current={day === today ? 'date' : undefined}
-				aria-label={`${weekdayName(weekday(day))} ${formatShortDate(day)}${due > 0 && !future ? `, ${met} of ${due} done` : ''}`}
+				aria-label={`${weekdayName(weekday(day))} ${formatShortDate(day)}${r ? `, ${r.text}` : ''}`}
 				disabled={future}
 				onmousedown={(e) => e.preventDefault()}
 				onclick={() => onselect(day)}
 			>
 				<svg viewBox="0 0 40 40" aria-hidden="true">
-					{#if due > 0 && !future}
+					{#if r}
 						<circle class="track" cx="20" cy="20" r={RADIUS} />
-						{#if met > 0}
-							<circle class="done" cx="20" cy="20" r={RADIUS} stroke-dasharray={`${(CIRCUMFERENCE * met) / due} ${CIRCUMFERENCE}`} />
+						{#if r.fill > 0}
+							<circle class="done" cx="20" cy="20" r={RADIUS} stroke-dasharray={`${CIRCUMFERENCE * Math.min(1, r.fill)} ${CIRCUMFERENCE}`} />
 						{/if}
 					{/if}
 				</svg>
@@ -111,7 +115,7 @@
 		stroke: var(--border);
 	}
 	.done {
-		stroke: var(--accent);
+		stroke: var(--ring);
 		stroke-linecap: round;
 	}
 	.number {

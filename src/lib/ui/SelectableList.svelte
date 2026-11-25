@@ -27,6 +27,7 @@
 		onopen,
 		row,
 		empty,
+		showSelection = true,
 	}: {
 		items: readonly T[];
 		/** Identifies an item (unique within the list) */
@@ -47,6 +48,8 @@
 		onopen: (item: T) => void;
 		row: Snippet<[T]>;
 		empty: Snippet;
+		/** Whether the selected row is highlighted (false: the view shows something else, e.g. on touch screens, where there's no keyboard cursor) */
+		showSelection?: boolean;
 	} = $props();
 
 	const prefix = `option-${Math.random().toString(36).slice(2)}`;
@@ -301,7 +304,7 @@
 				id={domId(key(item))}
 				data-key={key(item)}
 				class="option"
-				class:selected={key(item) === selected}
+				class:selected={showSelection && key(item) === selected}
 				role="option"
 				use:observed
 				aria-selected={key(item) === selected}

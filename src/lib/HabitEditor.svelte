@@ -20,8 +20,6 @@
 		habit,
 		onsaved,
 		onarchive,
-		onmove,
-		canmove,
 		ondelete,
 		onclose,
 	}: {
@@ -31,9 +29,6 @@
 		onsaved: (id: Id) => void;
 		/** Archives (or makes active again) the edited habit; the dialog closes first */
 		onarchive: (habit: Habit) => void;
-		/** Moves the edited habit up or down in the order (the dialog stays open) */
-		onmove: (habit: Habit, by: -1 | 1) => void;
-		canmove: (habit: Habit, by: -1 | 1) => boolean;
 		ondelete: (habit: Habit) => void;
 		onclose: () => void;
 	} = $props();
@@ -48,8 +43,6 @@
 		? toDraft(original)
 		: { name: '', kind: 'check' as HabitKind, unit: '', color: unusedColor(usedColors), start: clock.today, goal: { period: 'day', days: [...WEEKDAYS], aim: 'build', target: 1 } as Goal };
 
-	/** The habit as it is now (moving it, or a sync, changes it while the dialog is open) */
-	const current = $derived(original ? workspace.data.habits.find((h) => h.id === original.id) : undefined);
 	/** What the editor edits of a habit: a change to anything else meanwhile doesn't conflict */
 	const edited = (h: Habit) => ({ name: h.name, kind: h.kind, unit: h.unit, color: h.color, goals: h.goals });
 
@@ -197,8 +190,6 @@
 		<div class="buttons">
 			{#if original}
 				<div class="item-actions">
-					<button type="button" aria-label="Move up" title="Move up" disabled={!current || !canmove(current, -1)} onclick={() => current && onmove(current, -1)}>↑</button>
-					<button type="button" aria-label="Move down" title="Move down" disabled={!current || !canmove(current, 1)} onclick={() => current && onmove(current, 1)}>↓</button>
 					<button type="button" onclick={() => onarchive(original)}>{original.archived ? 'Unarchive' : 'Archive'}</button>
 					<button type="button" class="danger" onclick={() => ondelete(original)}>Delete</button>
 				</div>
