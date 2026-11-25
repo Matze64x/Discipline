@@ -25,6 +25,11 @@ async function openPublished(page: Page) {
 	await page.reload();
 	await waitForApp(page);
 	expect(await page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
+	// (the app checks for a new version when it starts: let that be done before one is published)
+	const settings = await openSettings(page);
+	await settings.getByRole('button', { name: 'Check for updates' }).click();
+	await expect(settings).toContainText('Up to date.');
+	await page.keyboard.press('Escape');
 }
 
 /** From now on the server offers the next version */
