@@ -604,6 +604,7 @@
 		flex: 1 1 6rem;
 		min-width: 0;
 		overflow-wrap: anywhere;
+		color: var(--ink);
 	}
 	.head .progress {
 		margin-left: auto;
@@ -632,6 +633,8 @@
 		min-width: max(2.4rem, var(--tap));
 		height: max(2.4rem, var(--tap));
 		padding: 0 0.4rem;
+		color: var(--ink);
+		border-color: var(--color);
 	}
 	.progress.met {
 		color: var(--positive);

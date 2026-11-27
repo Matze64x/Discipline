@@ -73,6 +73,12 @@ body {
 	min-height: 100dvh;
 }
 
+/* a habit's color as text: its color moved a little toward the text color, so light colors stay
+   readable on a light card and dark ones on a dark card (set --color on an ancestor) */
+* {
+	--ink: color-mix(in srgb, var(--color, var(--text)) 75%, var(--text));
+}
+
 button {
 	font: inherit;
 	color: var(--text);
