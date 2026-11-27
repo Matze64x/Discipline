@@ -256,6 +256,35 @@ describe('two devices', () => {
 		same(pc, phone);
 	});
 
+	it('a client cleared (its data and bases) while a round is under way: its result is dropped, nothing is deleted on the merger', async () => {
+		const pc = new Device('pc', 'pc');
+		const phone = new Device('phone', 'phone');
+		for (const d of ['a', 'b', 'c']) pc.add(d);
+		const first = new Link(pc, phone, true);
+		await run(first);
+		first.close();
+		phone.add('new on the phone');
+
+		// the state is on its way; before its result arrives, another tab clears the phone's data
+		const second = new Link(pc, phone, true);
+		await settle();
+		for (;;) {
+			if (await second.step('a')) continue;
+			const next = second.toB[0];
+			if (!next) break;
+			if (next.type === 'result') {
+				phone.working = EMPTY_DATA;
+				phone.bases.clear();
+			}
+			await second.step('b');
+		}
+		await run(second);
+		expect(second.errors).toEqual([]);
+		// nothing counts as deleted: the PC keeps everything, and the phone gets it back
+		expect(pc.descriptions()).toEqual(['a', 'b', 'c', 'new on the phone']);
+		same(pc, phone);
+	});
+
 	it('a result lost on the way: the next round still knows what the merger deleted', async () => {
 		const pc = new Device('pc', 'pc');
 		const phone = new Device('phone', 'phone');

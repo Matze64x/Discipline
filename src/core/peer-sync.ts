@@ -17,6 +17,8 @@
  * - The merger also keeps the base before (`previous`: the one the client last named) until the
  *   client names the new one: if a result never arrives (connection lost, the client's save
  *   failed), the client names the old base again, and the merge still knows what was deleted.
+ * - If the client's base changed while a round was under way (its data was cleared), it drops the
+ *   result and starts another round.
  * - If the base the client names isn't the merger's (one side lost or never had it), the merge
  *   runs without a base: nothing counts as deleted, both sides are combined. That errs towards
  *   keeping data. If the client sent no data then, the merger asks for it (`resend`).
@@ -171,6 +173,8 @@ export class PeerSession {
 	#again = false;
 	/** Client: the working copy sent in the current round */
 	#sent: DisciplineData | null = null;
+	/** Client: the hash of the base named in the current round (null: none) */
+	#sentBase: string | null = null;
 
 	constructor(options: PeerSessionOptions) {
 		this.#options = options;
@@ -263,6 +267,7 @@ export class PeerSession {
 		const peer = this.#peer!;
 		const { working, base } = await this.#options.store.transact(peer.id, (working, base) => ({ working, base, value: { working, base } }));
 		this.#sent = working;
+		this.#sentBase = base?.hash ?? null;
 		const unchanged = !full && base !== null && (base.data === working || base.hash === hashOf(working));
 		this.#options.send({ type: 'state', base: base?.hash ?? null, data: unchanged ? null : textOf(working) });
 	}
@@ -273,8 +278,12 @@ export class PeerSession {
 		const result = data === null ? sent : parseData(data);
 		const base = baseOf(result);
 		if (base.hash !== hash) throw new SyncError("The other device's result didn't arrive intact.");
-		const report = await this.#options.store.transact(peer.id, (working, stored) => {
+		type Outcome = { changes: ChangeSummary; conflicts: number; again: boolean } | 'outdated' | null;
+		const report = await this.#options.store.transact<Outcome>(peer.id, (working, stored) => {
 			if (this.#closed) return { working, base: stored, value: null };
+			// the base changed meanwhile (the data here was cleared, or the device unpaired): the result
+			// no longer fits; merged with the working copy it would delete what's gone here everywhere
+			if ((stored?.hash ?? null) !== this.#sentBase) return { working, base: stored, value: 'outdated' };
 			// edits made here since the state was sent are merged on top of the result
 			const merged = working === sent ? null : merge(sent, working, result);
 			const next = merged ? merged.data : result;
@@ -288,6 +297,8 @@ export class PeerSession {
 		if (report === null) return;
 		this.#inRound = false;
 		this.#sent = null;
+		// (a new round names the base there is now: the merger then merges without deleting anything)
+		if (report === 'outdated') return this.#startRound();
 		this.#options.onSynced?.({ peer, changes: report.changes, conflicts: report.conflicts });
 		if (report.again || this.#again) await this.#startRound();
 	}
