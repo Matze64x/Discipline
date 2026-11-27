@@ -366,7 +366,7 @@
 			</div>
 			<!-- (never focused, like the mark: the keys act on the list's selection) -->
 			{#if habit.kind === 'amount'}
-				<span class="actions">
+				<span class="actions" style:--on-color={textOn(habit.color)}>
 					<button type="button" tabindex="-1" title="Add 1 (+)" aria-label="Add 1" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, (row) => void add(row.habit, date, 1))}>+1</button>
 					<button type="button" tabindex="-1" title="Add an amount (a)" aria-label="Add an amount" onmousedown={(e) => e.preventDefault()} onclick={(e) => onButton(e, r, openAdd)}>+</button>
 				</span>
@@ -633,8 +633,10 @@
 		min-width: max(2.4rem, var(--tap));
 		height: max(2.4rem, var(--tap));
 		padding: 0 0.4rem;
-		color: var(--ink);
+		/* (filled like the dialogs' main buttons in the habit's color; text black or white, whichever reads better) */
+		background: var(--color);
 		border-color: var(--color);
+		color: var(--on-color);
 	}
 	.progress.met {
 		color: var(--positive);
