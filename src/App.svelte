@@ -253,7 +253,7 @@
 
 <main>
 	{#if loadError}
-		<p class="notice error" role="alert">Your data can't be loaded: {loadError}</p>
+		<p class="notice error" role="alert">Your data can't be loaded: {loadError}{workspace.unreadable ? ' To start over, clear it in Settings.' : ''}</p>
 	{:else if workspace.ready}
 		<!-- each view stays mounted (keeps its selection); only the shown one is active -->
 		<div hidden={section !== 'today'}>
@@ -312,6 +312,7 @@
 		{workspace}
 		{sync}
 		{busy}
+		loadFailed={workspace.unreadable}
 		onimport={() => {
 			settingsOpen = false;
 			importFile();
@@ -323,6 +324,16 @@
 		onundoimport={() => {
 			settingsOpen = false;
 			undoImport();
+		}}
+		onclear={() => {
+			settingsOpen = false;
+			const failed = workspace.unreadable;
+			void run(async () => {
+				await workspace.clear();
+				// (nothing was started on data that couldn't be loaded: start again, on the cleared data)
+				if (failed) location.reload();
+				return 'Cleared the data on this device.';
+			});
 		}}
 		onclose={() => (settingsOpen = false)}
 	/>

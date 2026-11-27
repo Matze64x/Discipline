@@ -38,7 +38,8 @@ export interface StoredBaseText {
 	readonly previous?: { readonly text: string; readonly hash: string } | null;
 }
 
-const baseKey = (peer: string) => `discipline-base-v1:${peer}`;
+const BASE_PREFIX = 'discipline-base-v1:';
+const baseKey = (peer: string) => `${BASE_PREFIX}${peer}`;
 
 export async function loadWorkspace(): Promise<StoredWorkspace | undefined> {
 	return get<StoredWorkspace>(KEY, store);
@@ -49,12 +50,16 @@ export async function loadBase(peer: string): Promise<StoredBaseText | undefined
 }
 
 /**
- * Saves the workspace and, if given, another device's base (null: delete it) in one transaction:
- * either both are saved or neither. `revision` is the one this tab loaded or saved last: if another
+ * Saves the workspace and, if given, another device's base (null: delete it; 'forget all': delete
+ * every device's base) in one transaction: either both are saved or neither. `revision` is the one this tab loaded or saved last: if another
  * tab saved since, nothing is saved and it throws `StaleWorkspaceError` (else one tab's save would
  * silently overwrite the other's). Returns the new revision. Tells other open tabs, so they reload.
  */
-export async function saveWorkspace(workspace: Omit<StoredWorkspace, 'revision'>, revision: number, base?: { peer: string; value: StoredBaseText | null }): Promise<number> {
+export async function saveWorkspace(
+	workspace: Omit<StoredWorkspace, 'revision'>,
+	revision: number,
+	base?: { peer: string; value: StoredBaseText | null } | 'forget all',
+): Promise<number> {
 	/** Why the transaction was aborted here (else the browser reports only "aborted") */
 	let failure: unknown = null;
 	await store('readwrite', (s) => {
@@ -63,7 +68,12 @@ export async function saveWorkspace(workspace: Omit<StoredWorkspace, 'revision'>
 			try {
 				if (((request.result as StoredWorkspace | undefined)?.revision ?? 0) !== revision) throw new StaleWorkspaceError();
 				s.put({ ...workspace, revision: revision + 1 } satisfies StoredWorkspace, KEY);
-				if (base) {
+				if (base === 'forget all') {
+					const keys = s.getAllKeys();
+					keys.onsuccess = () => {
+						for (const key of keys.result) if (typeof key === 'string' && key.startsWith(BASE_PREFIX)) s.delete(key);
+					};
+				} else if (base) {
 					if (base.value) s.put(base.value, baseKey(base.peer));
 					else s.delete(baseKey(base.peer));
 				}

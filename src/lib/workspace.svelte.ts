@@ -51,11 +51,23 @@ export type ImportCandidate =
 	| (ImportSource & { readonly ok: true; readonly plan: ImportPlan; readonly warnings: readonly Issue[] })
 	| (ImportSource & { readonly ok: false; readonly errors: readonly Issue[] });
 
+/** The stored data can't be read: damaged, or from a version the app no longer reads (or not yet) */
+class UnreadableDataError extends Error {
+	constructor(
+		message: string,
+		/** Written by a newer version: updating the app helps, clearing would lose it */
+		readonly newer: boolean,
+	) {
+		super(message);
+	}
+}
+
 function parseStored(text: string): DisciplineData {
 	const result = parseDiscipline(text);
 	if (result.ok) return result.data;
 	const [first] = result.errors;
-	throw new Error(`The data stored in this browser is damaged (${first?.path || 'file'}: ${first?.message}).`);
+	const newer = first?.path === 'version' && first.message.includes('newer version');
+	throw new UnreadableDataError(`The data stored in this browser can't be read (${first?.path || 'file'}: ${first?.message}).`, newer);
 }
 
 /**
@@ -110,6 +122,8 @@ export class Workspace implements SyncStore {
 	#current = $state.raw<Snapshot>({ working: EMPTY_DATA, fileName: null });
 	#beforeImport = $state.raw<Snapshot | null>(null);
 	ready = $state(false);
+	/** The stored data couldn't be read (and isn't from a newer version): clearing it is the way out */
+	unreadable = $state(false);
 	/** Increases whenever another tab changed the data and it was reloaded */
 	revision = $state(0);
 	/** Desktop app: why the last backup failed (null: it worked, or there is none) */
@@ -144,7 +158,13 @@ export class Workspace implements SyncStore {
 		const stored = await loadWorkspace();
 		this.#savedRevision = stored?.revision ?? 0;
 		if (stored) {
-			this.#current = fromStored(stored.current);
+			try {
+				this.#current = fromStored(stored.current);
+			} catch (e) {
+				this.unreadable = e instanceof UnreadableDataError && !e.newer;
+				throw e;
+			}
+			this.unreadable = false;
 			try {
 				this.#beforeImport = stored.beforeImport && fromStored(stored.beforeImport);
 			} catch {
@@ -251,7 +271,9 @@ export class Workspace implements SyncStore {
 			const path = settings.backupPath;
 			if (!this.isDesktop || !path) return;
 			const data = this.#current.working;
-			if (data === this.#backedUp) return;
+			// (no data, e.g. just cleared: the backup keeps the last data instead, as a way back)
+			const empty = data.habits.length + data.entries.length === 0;
+			if (data === this.#backedUp || empty) return;
 			try {
 				await desktop.writeFile(path, fileText(data));
 				this.#backedUp = data;
@@ -333,6 +355,32 @@ export class Workspace implements SyncStore {
 			this.#redo = this.#redo.slice(0, -1);
 			this.#undo = [...this.#undo, next];
 			return next.label;
+		});
+	}
+
+	/**
+	 * Deletes all habits and entries on this device, with no undo (the day and week start stay, if
+	 * the data could be read). Every device's base is forgotten too, so the next sync brings their
+	 * data back here instead of deleting it there. Only while sync is off: a running connection
+	 * still has its base.
+	 */
+	clear(): Promise<void> {
+		return this.#serial(async () => {
+			const kept = this.ready && !this.unreadable ? this.#current.working.preferences : EMPTY_DATA.preferences;
+			const working = kept === EMPTY_DATA.preferences ? EMPTY_DATA : { ...EMPTY_DATA, preferences: kept };
+			const next: Snapshot = { working, fileName: null };
+			this.#savedRevision = await saveWorkspace({ current: toStored(next), beforeImport: null }, this.#savedRevision, 'forget all');
+			this.#bases.clear();
+			this.#undo = [];
+			this.#redo = [];
+			const changed = next.working !== this.#current.working;
+			this.#current = next;
+			this.#beforeImport = null;
+			this.unreadable = false;
+			if (changed) {
+				this.#scheduleBackup();
+				this.#emit(null);
+			}
 		});
 	}
 

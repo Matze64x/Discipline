@@ -159,3 +159,30 @@ test('two devices sync additions, edits and deletions both ways, and keep their 
 	await pcContext.close();
 	await phoneContext.close();
 });
+
+test('clearing the data on one device deletes nothing elsewhere: the next sync brings it back', async ({ browser }) => {
+	const pcContext = await browser.newContext();
+	const phoneContext = await browser.newContext();
+	const pc = await openDevice(pcContext, 'pc-1', 'pc');
+	const phone = await openDevice(phoneContext, 'phone-1', 'phone');
+	await importFixture(pc.page);
+	await connect(pc, phone);
+	await expect(habits(phone.page)).toHaveCount(3);
+
+	// apart (restarted), the phone clears its data; its base for the PC goes with it
+	await phone.page.reload();
+	await pc.page.reload();
+	for (const page of [phone.page, pc.page]) await page.getByRole('button', { name: 'Habits', exact: true }).click();
+	await expect(habits(phone.page)).toHaveCount(3);
+	const settings = await openSettings(phone.page);
+	await settings.getByRole('button', { name: 'Clear data…' }).click();
+	await phone.page.getByRole('dialog', { name: 'Clear data?' }).getByRole('button', { name: 'Clear data' }).click();
+	await expect(habits(phone.page)).toHaveCount(0);
+
+	await connect(pc, phone);
+	await expect(habits(phone.page)).toHaveCount(3);
+	await expect(habits(pc.page)).toHaveCount(3);
+
+	await pcContext.close();
+	await phoneContext.close();
+});

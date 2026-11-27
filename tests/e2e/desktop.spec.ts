@@ -227,6 +227,30 @@ test('changes made before restarting are backed up after the restart', async ({ 
 	await expect.poll(() => habitsIn(page, BACKUP), { timeout: 8000 }).toBe(4);
 });
 
+test('clearing the data leaves the backup file as it was', async ({ page }) => {
+	// (waits on purpose: the backup is written seconds after a change)
+	test.slow();
+	await importFile(page);
+	await chooseBackup(page);
+	expect(await habitsIn(page, BACKUP)).toBe(3);
+	await page.getByRole('button', { name: 'Settings' }).click();
+	await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Clear data…' }).click();
+	const confirm = page.getByRole('dialog', { name: 'Clear data?' });
+	await expect(confirm).toContainText('and so does the backup file');
+	await confirm.getByRole('button', { name: 'Clear data' }).click();
+	await expect(habitList(page).getByRole('option')).toHaveCount(0);
+	// not even after a while, on closing, or after a restart
+	await page.waitForTimeout(3500);
+	await page.reload();
+	await waitForApp(page);
+	await page.waitForTimeout(3500);
+	expect(await habitsIn(page, BACKUP)).toBe(3);
+	// the next change is backed up as usual
+	await page.getByRole('button', { name: 'Habits', exact: true }).click();
+	await addHabit(page, 'Starting over');
+	await expect.poll(() => habitsIn(page, BACKUP), { timeout: 8000 }).toBe(1);
+});
+
 test('the backup can be turned off', async ({ page }) => {
 	await importFile(page);
 	await chooseBackup(page);

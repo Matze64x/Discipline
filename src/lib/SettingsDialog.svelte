@@ -1,5 +1,5 @@
 <!--
-	Importing and exporting the data file, preferences of this device (stored in the browser, not in
+	Importing, exporting and clearing the data, preferences of this device (stored in the browser, not in
 	the data file) and the devices it syncs with. Changes apply at once.
 -->
 <script lang="ts">
@@ -20,25 +20,32 @@
 		workspace,
 		sync,
 		busy,
+		loadFailed,
 		onimport,
 		onexport,
 		onundoimport,
+		onclear,
 		onclose,
 	}: {
 		workspace: Workspace;
 		sync: DesktopSync | PhoneSync;
 		/** The data isn't loaded (yet): no file actions */
 		busy: boolean;
+		/** The stored data couldn't be read: clearing it is the way out */
+		loadFailed: boolean;
 		/** The file actions; each closes the dialog first. They must start right in the click
 		 * (browsers allow a file chooser or download only directly after one) */
 		onimport: () => void;
 		onexport: () => void;
 		onundoimport: () => void;
+		/** Deletes the data on this device (asked here first); closes the dialog */
+		onclear: () => void;
 		onclose: () => void;
 	} = $props();
 	const sample = today();
 	const time = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 	const location = isDesktop ? dataLocation().catch(() => null) : null;
+	let confirmingClear = $state(false);
 	/** Why choosing the backup file failed (shown here: a notice would be behind the dialog) */
 	let failure = $state<string | null>(null);
 
@@ -94,7 +101,9 @@
 			<button type="button" disabled={busy} title={displayKeys('Mod+o')} onclick={onimport}>Import</button>
 			<button type="button" disabled={busy} title={displayKeys('Mod+s')} onclick={onexport}>Export</button>
 			{#if workspace.canUndoImport}<button type="button" disabled={busy} onclick={onundoimport}>Undo import</button>{/if}
+			<button type="button" class="danger" disabled={(busy && !loadFailed) || sync.enabled} onclick={() => (confirmingClear = true)}>Clear data…</button>
 		</div>
+		{#if sync.enabled}<p class="muted file">To clear the data, turn off sync first.</p>{/if}
 		{#if workspace.fileName}<p class="muted file">Last file: <span class="name">{workspace.fileName}</span></p>{/if}
 		{#if isDesktop}
 			<h4>Backup file</h4>
@@ -154,6 +163,16 @@
 		<div class="buttons"><button type="button" class="primary" onclick={onclose}>Done</button></div>
 	</div>
 </Modal>
+
+{#if confirmingClear}
+	<Modal title="Clear data?" onclose={() => (confirmingClear = false)}>
+		<p class="ask">Deletes all habits and entries on this device. Other devices keep theirs{isDesktop && settings.backupPath ? ', and so does the backup file' : ''}. Export first to keep a copy.</p>
+		<div class="buttons">
+			<button type="button" onclick={() => (confirmingClear = false)}>Cancel</button>
+			<button type="button" class="primary danger" onclick={onclear}>Clear data</button>
+		</div>
+	</Modal>
+{/if}
 
 <style>
 	.settings {
@@ -221,6 +240,15 @@
 	.buttons {
 		display: flex;
 		justify-content: flex-end;
+		gap: 0.5rem;
 		margin-top: 0.5rem;
+	}
+	.ask {
+		margin: 0;
+	}
+	.primary.danger {
+		background: var(--negative);
+		border-color: var(--negative);
+		color: var(--accent-text);
 	}
 </style>
