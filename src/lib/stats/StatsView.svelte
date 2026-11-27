@@ -64,14 +64,14 @@
 		weekInfo = null;
 	});
 
-	/** A habit's rate over its recent periods: "87 % · last 30 days" */
-	function recentRate(habit: Habit): string {
+	/** A habit's rate over its recent periods ("87 %") and over what ("last 30 days"); null: nothing to count yet */
+	function recentRate(habit: Habit): { rate: string; span: string } | null {
 		const end = habit.archived !== null && habit.archived <= today ? addDays(habit.archived, -1) : today;
 		const period = latestGoal(habit).period;
 		const [from, span] =
 			period === 'day' ? [addDays(end, -29), '30 days'] : period === 'week' ? [addDays(startOfWeek(end, weekStart), -77), '12 weeks'] : [addMonths(end, -11), '12 months'];
 		const { met, counted } = rateOf(periodResults(data, habit, from as CivilDate, end, weekStart, today));
-		return counted ? `${Math.round((met / counted) * 100)} % · last ${span}` : 'Nothing to count yet';
+		return counted ? { rate: `${Math.round((met / counted) * 100)} %`, span: `last ${span}` } : null;
 	}
 
 	let selectedId = $state<Id | null>(null);
@@ -145,14 +145,18 @@
 	>
 		{#snippet row(h)}
 			<!-- (its squares in its color) -->
+			{@const recent = recentRate(h)}
 			<div class="habit" class:archived={h.archived !== null} style={accentStyle(h.color)}>
-				<div class="name">
+				<!-- the name and goal on the left, the recent rate and over what on the right (the squares
+				     below cover the last 26 weeks, with their months under them) -->
+				<div class="head">
 					<span class="dot" style:background={h.color}></span>
 					<span class="title">{h.name}</span>
+					<span class="rate">{recent?.rate ?? '–'}</span>
 					<span class="goal">{h.archived !== null ? 'Archived' : describeGoal(latestGoal(h), h)}</span>
+					<span class="span">{recent?.span ?? 'Nothing to count yet'}</span>
 				</div>
 				<WeekDots {data} habit={h} {weeks} {today} />
-				<span class="rate">{recentRate(h)}</span>
 			</div>
 		{/snippet}
 		{#snippet empty()}
@@ -212,10 +216,11 @@
 	.archived {
 		opacity: 0.6;
 	}
-	.name {
-		display: flex;
+	.head {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
-		gap: 0.6rem;
+		column-gap: 0.6rem;
 	}
 	.dot {
 		width: 0.8rem;
@@ -224,17 +229,24 @@
 		flex: none;
 	}
 	.title {
-		flex: 1 0 40%;
 		min-width: 0;
 		overflow-wrap: anywhere;
 		font-weight: 600;
 	}
-	.goal,
 	.rate {
-		color: var(--muted);
-		font-size: 0.85rem;
+		font-weight: 700;
+		text-align: right;
 	}
+	.goal,
+	.span {
+		color: var(--muted);
+		font-size: 0.8rem;
+	}
+	/* (under the name, not under the dot) */
 	.goal {
+		grid-column: 2;
+	}
+	.span {
 		text-align: right;
 	}
 	.empty {

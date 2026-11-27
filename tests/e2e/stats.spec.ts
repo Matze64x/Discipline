@@ -22,9 +22,15 @@ test('the overview: goals met this week, each habit’s recent rate', async ({ p
 	await expect(page.getByText('of the goals met this week (0 of 2)')).toBeVisible();
 	const list = page.getByRole('listbox', { name: 'Habit stats' });
 	// Read met 30 min on 1 of the 29 days before today
-	await expect(list.getByRole('option').filter({ hasText: 'Read' })).toContainText('3 % · last 30 days');
+	const read = list.getByRole('option').filter({ hasText: 'Read' });
+	await expect(read.locator('.rate')).toHaveText('3 %');
+	await expect(read.locator('.span')).toHaveText('last 30 days');
 	// Run: 8 weeks since its start, none with 3 days
-	await expect(list.getByRole('option').filter({ hasText: 'Run' })).toContainText('0 % · last 12 weeks');
+	const run = list.getByRole('option').filter({ hasText: 'Run' });
+	await expect(run.locator('.rate')).toHaveText('0 %');
+	await expect(run.locator('.span')).toHaveText('last 12 weeks');
+	// the squares: the last 26 weeks, the months they span named below them (today is 25.11.2026)
+	expect(await read.locator('.months span').allTextContents()).toEqual(['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
 	await expect(list.getByRole('option').filter({ hasText: 'Stretch' })).toContainText('Archived');
 });
 

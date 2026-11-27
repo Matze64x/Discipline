@@ -72,8 +72,8 @@ test('limits: made in the editor, slips on Today, judged in Stats', async ({ pag
 	// Stats: today's broken limits count at once, a kept week only once it's over
 	await page.getByRole('button', { name: 'Stats', exact: true }).click();
 	const stats = page.getByRole('listbox', { name: 'Habit stats' });
-	await expect(stats.getByRole('option').filter({ hasText: 'Smoke' })).toContainText('0 % · last 30 days');
-	await expect(stats.getByRole('option').filter({ hasText: 'Coffee' })).toContainText('0 % · last 30 days');
+	await expect(stats.getByRole('option').filter({ hasText: 'Smoke' })).toContainText('0 %');
+	await expect(stats.getByRole('option').filter({ hasText: 'Coffee' })).toContainText('0 %');
 	await expect(stats.getByRole('option').filter({ hasText: 'Snacks' })).toContainText('Nothing to count yet');
 	await stats.getByRole('option').filter({ hasText: 'Smoke' }).click();
 	await expect(page.getByText('limits kept')).toBeVisible();
