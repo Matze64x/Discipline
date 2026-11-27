@@ -22,6 +22,7 @@
 		dayShare,
 		entryOn,
 		isActiveOn,
+		isSettled,
 		progressOn,
 		remainingOf,
 		startOfMonth,
@@ -290,9 +291,12 @@
 			(dayCell; a weekly or monthly goal: against a day's share of it), and the mark fills once
 			the day is done. A limit's ring is what's left of the allowance: full while nothing is
 			entered, emptier with each amount; never filled (an entry of a yes/no limit is a slip, ✗).
+			Missed or broken (settled, not met): a grey ring, so a limit used up but kept (no arc
+			left either) still looks different from a broken one.
 		-->
 		{@const cell = dayCell(workspace.data, habit, date, clock.today)}
 		{@const filled = !limit && cell.fill >= 1}
+		{@const missed = progress.due && isSettled(progress, clock.today) && !progress.met}
 		<!-- the mark stays a circle: a long amount is written short, and smaller -->
 		{@const markText = habit.kind === 'check' ? (value === null ? '' : limit ? '✗' : '✓') : formatShort(value ?? 0)}
 		{@const progressText = daily
@@ -312,6 +316,7 @@
 				type="button"
 				class="mark"
 				class:filled
+				class:missed
 				style:--color={habit.color}
 				style:--on-color={textOn(habit.color)}
 				style:font-size={markText.length <= 2 ? null : markText.length === 3 ? '0.9rem' : markText.length === 4 ? '0.78rem' : '0.68rem'}
@@ -330,7 +335,7 @@
 				</span>
 				{#if daily}
 					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
-					<!-- each day's ring closes as the mark's does (done: filled, missed: crossed out too) -->
+					<!-- each day's ring closes as the mark's does (done: filled, missed: grey) -->
 					<span class="dots">
 						<span class="visually-hidden">{`Week: ${marks.filter((m) => m === 'done').length} ${limit ? 'kept' : 'done'}, ${marks.filter((m) => m === 'missed').length} ${limit ? 'slipped' : 'missed'}.`}</span>
 						{#each week as day, i (day)}
@@ -449,7 +454,7 @@
 		min-height: 2.75rem;
 	}
 	/* a daily goal's week: each day a ring closing as it fills (ProgressRing): done (filled), missed
-	   (grey, crossed out), not due (a small dim dot), still open (in the habit's color) */
+	   or broken (a grey ring), not due (a small dim dot), kept or still open (in the habit's color) */
 	.dots {
 		display: flex;
 		align-items: center;
@@ -477,16 +482,6 @@
 	}
 	.dot.missed {
 		--ring-track: color-mix(in srgb, var(--muted) 45%, transparent);
-	}
-	.dot.missed::after {
-		content: '';
-		position: absolute;
-		left: -0.1rem;
-		right: -0.1rem;
-		top: calc(50% - 1px);
-		height: 2px;
-		background: var(--muted);
-		transform: rotate(-45deg);
 	}
 	.dot.current {
 		outline: 2px solid var(--text);
@@ -580,6 +575,9 @@
 		position: relative;
 		--ring-color: var(--color);
 		--ring-track: color-mix(in srgb, var(--color) 30%, transparent);
+	}
+	.mark.missed {
+		--ring-track: color-mix(in srgb, var(--muted) 45%, transparent);
 	}
 	.mark-text {
 		position: relative;

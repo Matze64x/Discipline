@@ -62,8 +62,12 @@ test('limits: made in the editor, slips on Today, judged in Stats', async ({ pag
 	await add1.click();
 	await expect(row(page, 'Coffee').locator('.progress')).toHaveText('2 / max 2 cups');
 	await expect(row(page, 'Coffee').locator('.progress')).not.toHaveClass(/over/);
+	// used up but kept: no arc left, yet not grey like a broken one
+	await expect(row(page, 'Coffee').locator('.mark .arc')).toHaveCount(0);
+	await expect(row(page, 'Coffee').locator('.mark')).not.toHaveClass(/missed/);
 	await add1.click();
 	await expect(row(page, 'Coffee').locator('.progress')).toHaveClass(/over/);
+	await expect(row(page, 'Coffee').locator('.mark')).toHaveClass(/missed/);
 
 	// Stats: today's broken limits count at once, a kept week only once it's over
 	await page.getByRole('button', { name: 'Stats', exact: true }).click();
