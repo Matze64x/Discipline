@@ -53,6 +53,10 @@ test('add habits, check off and enter amounts by taps', async ({ page }) => {
 	await amount.getByLabel('Amount').fill('12,5');
 	await amount.getByRole('button', { name: 'Save' }).tap();
 	await expect(dayRow(page, 'Read')).toContainText('12.5 / 30');
+	// the mark's ring closes as the day fills, like the days' rings above (12.5 of 30)
+	const arc = dayRow(page, 'Read').locator('.mark .arc');
+	const share = await arc.evaluate((c: SVGCircleElement) => parseFloat(c.getAttribute('stroke-dasharray')!) / (2 * Math.PI * c.r.baseVal.value));
+	expect(share).toBeCloseTo(12.5 / 30, 3);
 	// 0 clears it
 	await dayRow(page, 'Read').locator('.mark').tap();
 	amount = page.getByRole('dialog', { name: /Read/ });

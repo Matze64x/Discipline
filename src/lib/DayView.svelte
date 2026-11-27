@@ -37,6 +37,7 @@
 	import AmountDialog from './AmountDialog.svelte';
 	import { clock } from './clock.svelte';
 	import DayStrip from './DayStrip.svelte';
+	import ProgressRing from './ProgressRing.svelte';
 	import { describeDayAmount, formatDate, formatMonth, formatShortDate, formatValue, withUnit } from './display';
 	import { formatShort } from './short-number';
 	import { textOn } from './palette';
@@ -284,8 +285,14 @@
 		{@const { habit, progress, value } = r}
 		{@const daily = progress.goal.period === 'day'}
 		{@const limit = progress.goal.aim === 'limit'}
-		<!-- a limit's mark is filled while it's kept and empties once it's broken (an entry of a yes/no limit is a slip, ✗) -->
-		{@const filled = limit ? progress.due && progress.met : habit.kind === 'check' || progress.goal.period !== 'day' ? value !== null : progress.met}
+		<!--
+			The mark's ring closes as the day fills, as the days' rings above do for a focused habit
+			(dayCell; a weekly or monthly goal: against a day's share of it), and the mark fills once
+			the day is done. A limit's ring is what's left of the allowance: full while nothing is
+			entered, emptier with each amount; never filled (an entry of a yes/no limit is a slip, ✗).
+		-->
+		{@const cell = dayCell(workspace.data, habit, date, clock.today)}
+		{@const filled = !limit && cell.fill >= 1}
 		<!-- the mark stays a circle: a long amount is written short, and smaller -->
 		{@const markText = habit.kind === 'check' ? (value === null ? '' : limit ? '✗' : '✓') : formatShort(value ?? 0)}
 		{@const progressText = daily
@@ -313,7 +320,8 @@
 				onmousedown={(e) => e.preventDefault()}
 				onclick={(e) => onButton(e, r, activate)}
 			>
-				{markText}
+				<ProgressRing fill={filled ? 0 : cell.fill} />
+				<span class="mark-text">{markText}</span>
 			</button>
 			<div class="text">
 				<span class="head">
@@ -322,10 +330,15 @@
 				</span>
 				{#if daily}
 					{@const marks = dayMarks(workspace.data, habit, week, clock.today)}
+					<!-- each day's ring closes as the mark's does (done: filled, missed: crossed out too) -->
 					<span class="dots">
 						<span class="visually-hidden">{`Week: ${marks.filter((m) => m === 'done').length} ${limit ? 'kept' : 'done'}, ${marks.filter((m) => m === 'missed').length} ${limit ? 'slipped' : 'missed'}.`}</span>
-						{#each marks as mark, i (i)}
-							<span class={`dot ${mark}`} class:current={week[i] === date} class:today={week[i] === clock.today} style:--color={habit.color} aria-hidden="true"></span>
+						{#each week as day, i (day)}
+							{@const mark = marks[i]}
+							{@const solid = mark === 'done' && !limit}
+							<span class={`dot ${mark}`} class:solid class:current={day === date} class:today={day === clock.today} style:--color={habit.color} aria-hidden="true"
+								>{#if mark !== 'off' && !solid}<ProgressRing fill={dayCell(workspace.data, habit, day, clock.today).fill} width={day === clock.today && mark === 'open' ? 9 : 7} />{/if}</span
+							>
 						{/each}
 					</span>
 				{:else}
@@ -435,7 +448,8 @@
 	.toolbar button {
 		min-height: 2.75rem;
 	}
-	/* a daily goal's week: done (filled), missed (crossed out), not due (dim), still open (a ring) */
+	/* a daily goal's week: each day a ring closing as it fills (ProgressRing): done (filled), missed
+	   (grey, crossed out), not due (a small dim dot), still open (in the habit's color) */
 	.dots {
 		display: flex;
 		align-items: center;
@@ -445,16 +459,14 @@
 	}
 	.dot {
 		position: relative;
-		width: 0.7rem;
-		height: 0.7rem;
-		border-radius: 50%;
-		border: 2px solid var(--color);
-		box-sizing: border-box;
-	}
-	.dot {
 		flex: none;
+		width: 0.8rem;
+		height: 0.8rem;
+		border-radius: 50%;
+		--ring-color: var(--color);
+		--ring-track: color-mix(in srgb, var(--color) 30%, transparent);
 	}
-	.dot.done {
+	.dot.solid {
 		background: var(--color);
 	}
 	/* (a smaller dot drawn inside the same box: scaling the box would leave uneven gaps) */
@@ -463,12 +475,8 @@
 		background: radial-gradient(circle, var(--color) 0 45%, transparent 47%);
 		opacity: 0.5;
 	}
-	/* (today among the days still to come) */
-	.dot.open.today {
-		border-width: 3px;
-	}
 	.dot.missed {
-		border-color: var(--muted);
+		--ring-track: color-mix(in srgb, var(--muted) 45%, transparent);
 	}
 	.dot.missed::after {
 		content: '';
@@ -565,10 +573,16 @@
 		overflow: hidden;
 		white-space: nowrap;
 		border-radius: 999px;
-		border: 2px solid var(--color);
+		border: none;
 		background: none;
 		color: var(--text);
 		font-weight: 600;
+		position: relative;
+		--ring-color: var(--color);
+		--ring-track: color-mix(in srgb, var(--color) 30%, transparent);
+	}
+	.mark-text {
+		position: relative;
 	}
 	.mark.filled {
 		background: var(--color);
